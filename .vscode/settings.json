@@ -6,7 +6,6 @@
     "explorer.compactFolders": false,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true,
-    "typescript.suggest.completeJSDocs": false,
     "search.exclude": {
         "**/node_modules": true,
         "**/dist": true,
@@ -16,5 +15,7 @@
         "**/.next": true,
         "**/__generated__": true
     },
-    "github.copilot.editor.enableAutoCompletions": false
+    "typescript.suggest.completeJSDocs": false,
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true
 }
