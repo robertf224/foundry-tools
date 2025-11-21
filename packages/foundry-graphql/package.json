@@ -1,0 +1,52 @@
+{
+    "name": "@bobbyfidz/foundry-graphql",
+    "version": "0.1.4",
+    "type": "module",
+    "exports": {
+        "./relay-local": {
+            "types": "./lib/relay-local/index.d.ts",
+            "default": "./lib/relay-local/index.js"
+        },
+        "./relay": {
+            "types": "./lib/relay/index.d.ts",
+            "default": "./lib/relay/index.js"
+        }
+    },
+    "bin": {
+        "foundry-graphql": "./bin/run.js"
+    },
+    "files": [
+        "lib",
+        "bin"
+    ],
+    "scripts": {
+        "build": "tsc",
+        "lint": "eslint"
+    },
+    "oclif": {
+        "bin": "foundry-graphql",
+        "commands": "./lib/commands",
+        "dirname": "foundry-graphql",
+        "topicSeparator": " "
+    },
+    "dependencies": {
+        "@bobbyfidz/foundry-graphql-schema": "workspace:*",
+        "@bobbyfidz/local-oauth-flow": "^0.1.0",
+        "@bobbyfidz/panic": "^0.1.0",
+        "@next/env": "^16.0.3",
+        "@oclif/core": "^4.8.0",
+        "@osdk/client": "^2.5.2",
+        "graphql": "^16.10.0",
+        "ts-node": "^10.9.2"
+    },
+    "devDependencies": {
+        "@bobbyfidz/universal-build-config": "^0.1.1",
+        "@types/node": "^24.10.1",
+        "@types/relay-runtime": "^19.0.3",
+        "eslint": "^9.21.0",
+        "typescript": "~5.8.2"
+    },
+    "peerDependencies": {
+        "relay-runtime": "^18.0.0 || ^19.0.0"
+    }
+}
