@@ -13,8 +13,8 @@
   "dependencies": {
     "@bobbyfidz/osdk-react": "workspace:*",
     "@gtd/sdk": "file:./@gtd_sdk-0.6.0.tgz",
-    "@osdk/client": "^2.3.0-beta.2",
-    "@osdk/oauth": "^1.1.2",
+    "@osdk/client": "^2.5.2",
+    "@osdk/oauth": "^1.5.0",
     "@tanstack/react-query": "^5.80.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

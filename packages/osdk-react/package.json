@@ -29,13 +29,13 @@
         "test": "vitest run --pass-with-no-tests"
     },
     "dependencies": {
-        "@osdk/client": "^2.3.0-beta.2",
-        "@osdk/api": "^2.3.0-beta.2",
+        "@osdk/client": "^2.5.2",
+        "@osdk/api": "^2.5.2",
         "@bobbyfidz/panic": "^0.1.0",
         "@bobbyfidz/osdk-utils": "workspace:*",
-        "@osdk/foundry.admin": "^2.22.0",
-        "@osdk/foundry.aipagents": "^2.22.0",
-        "@osdk/foundry.ontologies": "^2.22.0",
+        "@osdk/foundry.admin": "^2.41.0",
+        "@osdk/foundry.aipagents": "^2.41.0",
+        "@osdk/foundry.ontologies": "^2.41.0",
         "@yornaath/batshit": "^0.10.1"
     },
     "devDependencies": {
