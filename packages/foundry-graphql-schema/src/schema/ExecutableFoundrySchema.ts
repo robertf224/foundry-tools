@@ -8,20 +8,20 @@ import { OntologiesV2 } from "@osdk/foundry.ontologies";
 import { execute } from "grafast";
 import { parse, validate } from "graphql";
 import { GraphQLSchema } from "graphql";
-import { GoqlContext } from "./context.js";
-import { GoqlSchema } from "./GoqlSchema.js";
+import { FoundryContext } from "./context.js";
+import { FoundrySchema } from "./FoundrySchema.js";
 import { getConjureContext } from "./utils/getConjureContext.js";
 import { getUserProperties } from "./utils/getUserProperties.js";
 
-export interface ExecutableGoqlSchema {
+export interface ExecutableFoundrySchema {
     schema: GraphQLSchema;
-    context: (token: string) => Promise<GoqlContext>;
+    context: (token: string) => Promise<FoundryContext>;
 }
 
 async function create(
     client: Client,
     createRequestClient?: (token: string) => Client
-): Promise<ExecutableGoqlSchema> {
+): Promise<ExecutableFoundrySchema> {
     const ontologyRid = (client.__osdkClientContext as unknown as { ontologyRid: string }).ontologyRid;
     const ontology = await OntologiesV2.getFullMetadata(client, ontologyRid);
     const { objectTypes } = await bulkLoadOntologyEntities(
@@ -49,8 +49,8 @@ async function create(
     const userProperties = getUserProperties(
         objectTypes.map((o) => o?.objectType).filter((o) => o !== undefined)
     );
-    const schema = GoqlSchema.create(ontology, userProperties);
-    const context = async (token: string): Promise<GoqlContext> => {
+    const schema = FoundrySchema.create(ontology, userProperties);
+    const context = async (token: string): Promise<FoundryContext> => {
         const requestClient = createRequestClient?.(token) ?? client;
         const userId = getUserIdFromToken(await requestClient.__osdkClientContext.tokenProvider());
         return {
@@ -62,15 +62,15 @@ async function create(
     return { schema, context };
 }
 
-export type GoqlExecutor = (opts: {
+export type FoundryExecutor = (opts: {
     query: string;
     operationName?: string;
     variables: Record<string, unknown>;
     token: string;
 }) => Promise<any>;
 
-function createExecutor(executableGoqlSchema: ExecutableGoqlSchema): GoqlExecutor {
-    const { schema, context } = executableGoqlSchema;
+function createExecutor(executableFoundrySchema: ExecutableFoundrySchema): FoundryExecutor {
+    const { schema, context } = executableFoundrySchema;
 
     const getEnveloped = envelop({
         plugins: [
@@ -107,7 +107,7 @@ function createExecutor(executableGoqlSchema: ExecutableGoqlSchema): GoqlExecuto
     };
 }
 
-export const ExecutableGoqlSchema = {
+export const ExecutableFoundrySchema = {
     create,
     createExecutor,
 };

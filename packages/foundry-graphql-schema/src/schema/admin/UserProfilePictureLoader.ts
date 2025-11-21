@@ -2,7 +2,7 @@ import { Users } from "@osdk/foundry.admin";
 import { PrincipalId } from "@osdk/foundry.core";
 import { loadOneCallback } from "grafast";
 import { Base64 } from "js-base64";
-import { GoqlContext } from "../context.js";
+import { FoundryContext } from "../context.js";
 
 async function responseToDataURL(response: Response): Promise<string> {
     if (typeof window === "undefined") {
@@ -23,7 +23,7 @@ async function responseToDataURL(response: Response): Promise<string> {
     }
 }
 
-export const UserProfilePictureLoader = loadOneCallback<PrincipalId, string, {}, GoqlContext>(
+export const UserProfilePictureLoader = loadOneCallback<PrincipalId, string, {}, FoundryContext>(
     async (ids, { unary: context }) => {
         return Promise.all(ids.map((id) => Users.profilePicture(context.client, id).then(responseToDataURL)));
     }

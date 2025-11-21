@@ -1,9 +1,9 @@
 import { User, Users } from "@osdk/foundry.admin";
 import { PrincipalId } from "@osdk/foundry.core";
 import { loadOneCallback } from "grafast";
-import { GoqlContext } from "../context.js";
+import { FoundryContext } from "../context.js";
 
-export const UserLoader = loadOneCallback<PrincipalId, User, {}, GoqlContext>(
+export const UserLoader = loadOneCallback<PrincipalId, User, {}, FoundryContext>(
     async (ids, { unary: context }) => {
         const users = await Users.getBatch(
             context.client,

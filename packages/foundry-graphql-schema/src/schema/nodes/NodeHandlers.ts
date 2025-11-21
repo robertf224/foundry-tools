@@ -1,6 +1,6 @@
 import { constant, list, loadOne } from "grafast";
 import { NodeIdCodec, NodeIdHandler, LoadOneCallback, LoadedRecordStep, ListStep, Step } from "grafast";
-import { context, GoqlContext } from "../context.js";
+import { context, FoundryContext } from "../context.js";
 import { splitFirst } from "../utils/splitFirst.js";
 
 const BASIC_CODEC: NodeIdCodec = {
@@ -12,7 +12,7 @@ const BASIC_CODEC: NodeIdCodec = {
 function createBasicHandler(
     typeName: string,
     idFieldName: string,
-    loader: LoadOneCallback<string, any, {}, GoqlContext>
+    loader: LoadOneCallback<string, any, {}, FoundryContext>
 ): NodeIdHandler {
     return {
         typeName,

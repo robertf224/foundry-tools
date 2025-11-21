@@ -6,7 +6,7 @@ import {
     SelectedPropertyApiName,
 } from "@osdk/foundry.ontologies";
 import { access, each, ExecutionDetails, ExecutionResults, lambda, object, Step, Maybe } from "grafast";
-import { GoqlContext, context } from "../context.js";
+import { FoundryContext, context } from "../context.js";
 import { TypedOntologyObject } from "../utils/TypedOntologyObject.js";
 
 export interface ObjectListStepData {
@@ -87,7 +87,7 @@ class ObjectListStep extends Step<ObjectListStepData> {
     execute({ values, indexMap }: ExecutionDetails): ExecutionResults<ObjectListStepData> {
         return indexMap(async (index) => {
             /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-            const context: GoqlContext = values[this.#contextStepId]!.at(index);
+            const context: FoundryContext = values[this.#contextStepId]!.at(index);
             const objectSet: ObjectSet = values[this.#objectSetStepId]!.at(index);
             const { pageSize, pageToken, orderBy }: ObjectListArgs = values[this.#argsStep]!.at(index);
             /* eslint-enable @typescript-eslint/no-unsafe-assignment */

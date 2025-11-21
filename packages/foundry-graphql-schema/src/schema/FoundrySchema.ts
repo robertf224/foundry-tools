@@ -78,6 +78,6 @@ function create(ontology: OntologyFullMetadata, userProperties: UserProperties =
     });
 }
 
-export const GoqlSchema = {
+export const FoundrySchema = {
     create,
 };
