@@ -6,10 +6,6 @@
         "./relay-local": {
             "types": "./lib/relay-local/index.d.ts",
             "default": "./lib/relay-local/index.js"
-        },
-        "./relay": {
-            "types": "./lib/relay/index.d.ts",
-            "default": "./lib/relay/index.js"
         }
     },
     "bin": {
