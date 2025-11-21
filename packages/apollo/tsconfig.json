@@ -1,0 +1,3 @@
+{
+    "extends": "@bobbyfidz/universal-build-config/tsconfig-base.json"
+}
