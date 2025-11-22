@@ -1,4 +1,4 @@
-import { LoadedRecordStep, loadOne, objectFieldSpec } from "grafast";
+import { inhibitOnNull, LoadedRecordStep, loadOne, objectFieldSpec } from "grafast";
 import { GraphQLObjectType } from "graphql";
 import { UserLoader } from "../admin/UserLoader.js";
 import { context } from "../context.js";
@@ -20,7 +20,7 @@ function create(
             type: getTypeReference("User") as GraphQLObjectType,
             plan: ($object) => {
                 const $propertyValue = $object.get(propertyApiName);
-                return loadOne($propertyValue, context(), UserLoader);
+                return loadOne(inhibitOnNull($propertyValue), context(), UserLoader);
             },
         },
         `${path}.${fieldName}`

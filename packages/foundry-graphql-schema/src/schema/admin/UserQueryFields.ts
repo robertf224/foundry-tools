@@ -1,5 +1,5 @@
 import { User } from "@osdk/foundry.admin";
-import { loadOne, objectFieldSpec, Step } from "grafast";
+import { inhibitOnNull, loadOne, objectFieldSpec, Step } from "grafast";
 import { GraphQLString } from "graphql";
 import { context } from "../context.js";
 import { NamedGraphQLFieldConfig } from "../utils/NamedGraphQLFieldConfig.js";
@@ -16,7 +16,7 @@ function create(getTypeReference: GetTypeReference): NamedGraphQLFieldConfig[] {
                 description: "The current User.",
                 type: UserType.getReference(getTypeReference),
                 plan: () => {
-                    return loadOne(context().get("userId"), context(), UserLoader);
+                    return loadOne(inhibitOnNull(context().get("userId")), context(), UserLoader);
                 },
             },
             "Query.viewer"

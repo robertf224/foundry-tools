@@ -3,7 +3,6 @@ import { LoadedRecordStep, nodeIdFromNode, NodeIdHandler, objectFieldSpec } from
 import { GraphQLID, GraphQLObjectType } from "graphql";
 import { NodeHandlers } from "../nodes/NodeHandlers.js";
 import { NodeInterface } from "../nodes/NodeInterface.js";
-import { UserProperties } from "../utils/getUserProperties.js";
 import { Schemas } from "../utils/Schemas.js";
 import { TypedOntologyObject } from "../utils/TypedOntologyObject.js";
 import { GetTypeReference, TypeRegistry } from "../utils/TypeRegistry.js";
@@ -37,8 +36,7 @@ function getNodeIdHandler(objectType: ObjectTypeV2): NodeIdHandler {
 function create(
     typeRegistry: TypeRegistry,
     objectType: ObjectTypeFullMetadata,
-    ontology: OntologyFullMetadata,
-    userProperties: UserProperties
+    ontology: OntologyFullMetadata
 ): GraphQLObjectType {
     const typeName = getName(objectType.objectType);
     return new GraphQLObjectType({
@@ -63,7 +61,11 @@ function create(
                 ObjectLinkField.create(typeName, getTypeReference, linkType, objectType.objectType, ontology)
             );
             const userLinkFields = Object.entries(objectType.objectType.properties)
-                .filter(([, property]) => userProperties[property.rid])
+                .filter(
+                    ([, property]) =>
+                        property.valueFormatting?.type === "knownType" &&
+                        property.valueFormatting.knownType === "USER_OR_GROUP_ID"
+                )
                 .map((property) => ObjectUserLinkField.create(typeName, getTypeReference, property));
             return Object.fromEntries([
                 [NodeInterface.FIELD_NAME, idField],

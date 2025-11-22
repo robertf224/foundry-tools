@@ -3,15 +3,12 @@ import { envelop, useSchema, useEngine } from "@envelop/core";
 import { useParserCache } from "@envelop/parser-cache";
 import { useValidationCache } from "@envelop/validation-cache";
 import { Client } from "@osdk/client";
-import { bulkLoadOntologyEntities } from "@osdk/client.unstable";
 import { OntologiesV2 } from "@osdk/foundry.ontologies";
 import { execute } from "grafast";
 import { parse, validate } from "graphql";
 import { GraphQLSchema } from "graphql";
 import { FoundryContext } from "./context.js";
 import { FoundrySchema } from "./FoundrySchema.js";
-import { getConjureContext } from "./utils/getConjureContext.js";
-import { getUserProperties } from "./utils/getUserProperties.js";
 
 export interface ExecutableFoundrySchema {
     schema: GraphQLSchema;
@@ -24,32 +21,7 @@ async function create(
 ): Promise<ExecutableFoundrySchema> {
     const ontologyRid = (client.__osdkClientContext as unknown as { ontologyRid: string }).ontologyRid;
     const ontology = await OntologiesV2.getFullMetadata(client, ontologyRid);
-    const { objectTypes } = await bulkLoadOntologyEntities(
-        getConjureContext(client, "ontology-metadata/api"),
-        undefined,
-        {
-            objectTypes: Object.values(ontology.objectTypes).map((o) => ({
-                identifier: { type: "objectTypeRid", objectTypeRid: o.objectType.rid },
-                versionReference: undefined,
-            })),
-            linkTypes: [],
-            sharedPropertyTypes: [],
-            interfaceTypes: [],
-            typeGroups: [],
-            loadRedacted: false,
-            includeObjectTypeCount: undefined,
-            includeObjectTypesWithoutSearchableDatasources: true,
-            includeEntityMetadata: undefined,
-            actionTypes: [],
-            includeTypeGroupEntitiesCount: undefined,
-            entityMetadata: undefined,
-            datasourceTypes: [],
-        }
-    );
-    const userProperties = getUserProperties(
-        objectTypes.map((o) => o?.objectType).filter((o) => o !== undefined)
-    );
-    const schema = FoundrySchema.create(ontology, userProperties);
+    const schema = FoundrySchema.create(ontology);
     const context = async (token: string): Promise<FoundryContext> => {
         const requestClient = createRequestClient?.(token) ?? client;
         const userId = getUserIdFromToken(await requestClient.__osdkClientContext.tokenProvider());

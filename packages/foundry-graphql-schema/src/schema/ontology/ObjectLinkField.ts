@@ -1,5 +1,5 @@
 import { unreachable } from "@bobbyfidz/panic";
-import { lambda, LoadedRecordStep, loadOne, objectFieldSpec } from "grafast";
+import { inhibitOnNull, lambda, LoadedRecordStep, loadOne, objectFieldSpec } from "grafast";
 import { GraphQLFieldConfig } from "graphql";
 import { context } from "../context.js";
 import { NamedGraphQLFieldConfig } from "../utils/NamedGraphQLFieldConfig.js";
@@ -31,7 +31,7 @@ function create(
                 type: ObjectType.getReferenceByName(getTypeReference, linkType.objectTypeApiName),
                 plan: ($object) => {
                     const $foreignKey = $object.get(linkType.foreignKeyPropertyApiName!);
-                    return loadOne($foreignKey, context(), getObjectLoader(targetObjectType));
+                    return loadOne(inhibitOnNull($foreignKey), context(), getObjectLoader(targetObjectType));
                 },
             },
             fullPath

@@ -1,4 +1,4 @@
-import { constant, list, loadOne } from "grafast";
+import { constant, inhibitOnNull, list, loadOne } from "grafast";
 import { NodeIdCodec, NodeIdHandler, LoadOneCallback, LoadedRecordStep, ListStep, Step } from "grafast";
 import { context, FoundryContext } from "../context.js";
 import { splitFirst } from "../utils/splitFirst.js";
@@ -31,7 +31,7 @@ function createBasicHandler(
         },
         // Fetch the object by id.
         get($id: Step<string>) {
-            return loadOne($id, context(), loader);
+            return loadOne(inhibitOnNull($id), context(), loader);
         },
         // TODO: figure out what this is.
         getIdentifiers: () => [],

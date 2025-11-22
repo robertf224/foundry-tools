@@ -13,16 +13,15 @@ import { ObjectSetFilterType } from "./ontology/ObjectSetFilterType.js";
 import { ObjectSetType } from "./ontology/ObjectSetType.js";
 import { ObjectType } from "./ontology/ObjectType.js";
 import { OntologyQueryFields } from "./ontology/OntologyQueryFields.js";
-import { UserProperties } from "./utils/getUserProperties.js";
 import { TypeRegistry } from "./utils/TypeRegistry.js";
 import type { OntologyFullMetadata } from "@osdk/foundry.ontologies";
 
-function create(ontology: OntologyFullMetadata, userProperties: UserProperties = {}): GraphQLSchema {
+function create(ontology: OntologyFullMetadata): GraphQLSchema {
     const typeRegistry = new TypeRegistry();
 
     const ontologyTypes = Object.values(ontology.objectTypes)
         .flatMap((objectType) => [
-            ObjectType.create(typeRegistry, objectType, ontology, userProperties),
+            ObjectType.create(typeRegistry, objectType, ontology),
             ObjectSetType.create(typeRegistry, objectType),
             ObjectSetFilterType.create(typeRegistry, objectType),
             ObjectListTypes.createPageType(typeRegistry, objectType.objectType),

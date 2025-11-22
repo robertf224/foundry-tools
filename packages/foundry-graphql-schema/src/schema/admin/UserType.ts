@@ -1,5 +1,6 @@
 import { User } from "@osdk/foundry.admin";
 import {
+    inhibitOnNull,
     LoadedRecordStep,
     loadOne,
     nodeIdFromNode,
@@ -57,7 +58,7 @@ function create(typeRegistry: TypeRegistry): GraphQLObjectType {
                     description: "The URL of the User's profile picture.",
                     type: GraphQLString,
                     plan: ($user) => {
-                        return loadOne($user.get("id"), context(), UserProfilePictureLoader);
+                        return loadOne(inhibitOnNull($user.get("id")), context(), UserProfilePictureLoader);
                     },
                 },
             },
