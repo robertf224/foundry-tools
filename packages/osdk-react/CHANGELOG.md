@@ -1,5 +1,13 @@
 # @bobbyfidz/osdk-react
 
+## 0.12.3
+
+### Patch Changes
+
+- 9b47cc3: port packages
+- Updated dependencies [9b47cc3]
+    - @bobbyfidz/osdk-utils@0.2.1
+
 ## 0.12.2
 
 ### Patch Changes
