@@ -1,11 +1,10 @@
 {
     "$schema": "https://turbo.build/schema.json",
-    "ui": "tui",
     "tasks": {
         "build": {
             "dependsOn": ["^build"],
             "inputs": ["src/**", "tsconfig.json"],
-            "outputs": ["lib/**"]
+            "outputs": ["lib/**", "tsconfig.tsbuildinfo"]
         },
         "lint": {
             "dependsOn": ["build"],
@@ -17,8 +16,10 @@
         },
         "dev": {
             "cache": false,
-            "persistent": true,
-            "dependsOn": ["^build"]
+            "persistent": true
+        },
+        "//#lint-versions": {
+            "inputs": ["**/package.json"]
         }
     }
 }

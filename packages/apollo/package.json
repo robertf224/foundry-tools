@@ -1,28 +1,31 @@
 {
-    "name": "@bobbyfidz/osdk-utils",
-    "version": "0.2.0",
+    "name": "@bobbyfidz/apollo",
+    "version": "0.2.1",
     "type": "module",
+    "files": [
+        "lib"
+    ],
     "exports": {
         ".": {
             "types": "./lib/index.d.ts",
             "default": "./lib/index.js"
         }
     },
-    "files": [
-        "lib"
-    ],
     "scripts": {
         "build": "tsc",
-        "lint": "eslint"
+        "lint": "eslint",
+        "test": "vitest run --passWithNoTests"
     },
     "dependencies": {
-        "@osdk/client": "^2.5.2",
+        "@bobbyfidz/binaries": "^0.4.0",
         "@bobbyfidz/panic": "^0.1.0",
-        "jose": "^6.0.11"
+        "@bobbyfidz/urls": "^0.2.1"
     },
     "devDependencies": {
         "@bobbyfidz/universal-build-config": "^0.1.1",
+        "@types/node": "^24.10.1",
         "eslint": "^9.25.0",
-        "typescript": "~5.8.3"
+        "typescript": "~5.8.3",
+        "vitest": "^3.1.1"
     }
 }

@@ -1,0 +1,1289 @@
+"""
+"""
+type ContactResponse implements Node {
+    _id: ID!
+    message: String
+    id: String
+    interestLevel: String
+    email: String
+    name: String
+}
+
+"""
+A set of Contact responses.
+"""
+type ContactResponseSet {
+    """
+    A list of Contact responses.
+    """
+    list(after: String, first: Int, orderBy: ContactResponseOrderBy): ContactResponsePage
+}
+
+"""
+A filter for a set of Contact responses.
+"""
+input ContactResponseSetFilter @oneOf {
+    message: StringFilter
+    id: StringFilter
+    interestLevel: StringFilter
+    email: StringFilter
+    name: StringFilter
+}
+
+"""
+A page of Contact responses.
+"""
+type ContactResponsePage {
+    """
+    A list of Contact responses.
+    """
+    edges: [ContactResponseEdge!]
+
+    """
+    Information about pagination for this page.
+    """
+    pageInfo: PageInfo
+}
+
+"""
+A Contact response edge.
+"""
+type ContactResponseEdge {
+    """
+    The Contact response at the end of the edge.
+    """
+    node: ContactResponse!
+}
+
+input ContactResponseOrderBy @oneOf {
+    fields: [ContactResponseFieldOrdering!]
+}
+
+enum ContactResponsePropertyName {
+    message
+    id
+    interestLevel
+    email
+    name
+    createdAt
+}
+
+input ContactResponseFieldOrdering {
+    direction: OrderingDirection
+    field: ContactResponsePropertyName
+}
+
+"""
+"""
+type PortalToken implements Node {
+    _id: ID!
+    id: String
+    hashingAlgorithm: String
+    formId: String
+    name: String
+    parameterValues: String
+    createdBy: String
+    secretHash: String
+
+    """
+    Get the linked Form.
+    """
+    form: Form
+}
+
+"""
+A set of Portal tokens.
+"""
+type PortalTokenSet {
+    """
+    A list of Portal tokens.
+    """
+    list(after: String, first: Int, orderBy: PortalTokenOrderBy): PortalTokenPage
+
+    """
+    Get the linked Form set.
+    """
+    formSet: FormSet
+}
+
+"""
+A filter for a set of Portal tokens.
+"""
+input PortalTokenSetFilter @oneOf {
+    id: StringFilter
+    hashingAlgorithm: StringFilter
+    formId: StringFilter
+    name: StringFilter
+    parameterValues: StringFilter
+    createdBy: StringFilter
+    secretHash: StringFilter
+}
+
+"""
+A page of Portal tokens.
+"""
+type PortalTokenPage {
+    """
+    A list of Portal tokens.
+    """
+    edges: [PortalTokenEdge!]
+
+    """
+    Information about pagination for this page.
+    """
+    pageInfo: PageInfo
+}
+
+"""
+A Portal token edge.
+"""
+type PortalTokenEdge {
+    """
+    The Portal token at the end of the edge.
+    """
+    node: PortalToken!
+}
+
+input PortalTokenOrderBy @oneOf {
+    fields: [PortalTokenFieldOrdering!]
+}
+
+enum PortalTokenPropertyName {
+    expiresAt
+    id
+    hashingAlgorithm
+    formId
+    name
+    parameterValues
+    createdBy
+    revokedAt
+    secretHash
+    createdAt
+}
+
+input PortalTokenFieldOrdering {
+    direction: OrderingDirection
+    field: PortalTokenPropertyName
+}
+
+type InvestigationCase implements Node {
+    _id: ID!
+    poorFeeding: Boolean
+    id: String
+    otherNotes: String
+    headache: Boolean
+    email: String
+    bloodyDiarrhea: Boolean
+    infectiousDiseaseSymptoms: Boolean
+    fever: Boolean
+    name: String
+    symptomsDescription: String
+    chills: Boolean
+    createdBy: String
+    nonBloodyDiarrhea: Boolean
+    irritable: Boolean
+    abdominalCramps: Boolean
+    nausea: Boolean
+    vomiting: Boolean
+}
+
+"""
+A set of Investigation cases.
+"""
+type InvestigationCaseSet {
+    """
+    A list of Investigation cases.
+    """
+    list(after: String, first: Int, orderBy: InvestigationCaseOrderBy): InvestigationCasePage
+}
+
+"""
+A filter for a set of Investigation cases.
+"""
+input InvestigationCaseSetFilter @oneOf {
+    id: StringFilter
+    otherNotes: StringFilter
+    email: StringFilter
+    name: StringFilter
+    symptomsDescription: StringFilter
+    createdBy: StringFilter
+}
+
+"""
+A page of Investigation cases.
+"""
+type InvestigationCasePage {
+    """
+    A list of Investigation cases.
+    """
+    edges: [InvestigationCaseEdge!]
+
+    """
+    Information about pagination for this page.
+    """
+    pageInfo: PageInfo
+}
+
+"""
+A Investigation case edge.
+"""
+type InvestigationCaseEdge {
+    """
+    The Investigation case at the end of the edge.
+    """
+    node: InvestigationCase!
+}
+
+input InvestigationCaseOrderBy @oneOf {
+    fields: [InvestigationCaseFieldOrdering!]
+}
+
+enum InvestigationCasePropertyName {
+    poorFeeding
+    id
+    otherNotes
+    headache
+    email
+    bloodyDiarrhea
+    infectiousDiseaseSymptoms
+    fever
+    name
+    symptomsDescription
+    chills
+    createdBy
+    dateOfBirth
+    createdAt
+    nonBloodyDiarrhea
+    irritable
+    abdominalCramps
+    nausea
+    vomiting
+    interviewDate
+}
+
+input InvestigationCaseFieldOrdering {
+    direction: OrderingDirection
+    field: InvestigationCasePropertyName
+}
+
+"""
+"""
+type ProvisionalOffer implements Node {
+    _id: ID!
+    id: String
+    email: String
+    name: String
+}
+
+"""
+A set of Provisional offers.
+"""
+type ProvisionalOfferSet {
+    """
+    A list of Provisional offers.
+    """
+    list(after: String, first: Int, orderBy: ProvisionalOfferOrderBy): ProvisionalOfferPage
+}
+
+"""
+A filter for a set of Provisional offers.
+"""
+input ProvisionalOfferSetFilter @oneOf {
+    id: StringFilter
+    email: StringFilter
+    name: StringFilter
+}
+
+"""
+A page of Provisional offers.
+"""
+type ProvisionalOfferPage {
+    """
+    A list of Provisional offers.
+    """
+    edges: [ProvisionalOfferEdge!]
+
+    """
+    Information about pagination for this page.
+    """
+    pageInfo: PageInfo
+}
+
+"""
+A Provisional offer edge.
+"""
+type ProvisionalOfferEdge {
+    """
+    The Provisional offer at the end of the edge.
+    """
+    node: ProvisionalOffer!
+}
+
+input ProvisionalOfferOrderBy @oneOf {
+    fields: [ProvisionalOfferFieldOrdering!]
+}
+
+enum ProvisionalOfferPropertyName {
+    id
+    email
+    name
+}
+
+input ProvisionalOfferFieldOrdering {
+    direction: OrderingDirection
+    field: ProvisionalOfferPropertyName
+}
+
+"""
+"""
+type Employee implements Node {
+    _id: ID!
+    id: String
+    name: String
+
+    """
+    Get the linked Patient Encounter.
+    """
+    patientEncounters: PatientEncounterSet
+}
+
+"""
+A set of Employees.
+"""
+type EmployeeSet {
+    """
+    A list of Employees.
+    """
+    list(after: String, first: Int, orderBy: EmployeeOrderBy): EmployeePage
+
+    """
+    Get the linked Patient Encounter set.
+    """
+    patientEncounters: PatientEncounterSet
+}
+
+"""
+A filter for a set of Employees.
+"""
+input EmployeeSetFilter @oneOf {
+    id: StringFilter
+    name: StringFilter
+}
+
+"""
+A page of Employees.
+"""
+type EmployeePage {
+    """
+    A list of Employees.
+    """
+    edges: [EmployeeEdge!]
+
+    """
+    Information about pagination for this page.
+    """
+    pageInfo: PageInfo
+}
+
+"""
+A Employee edge.
+"""
+type EmployeeEdge {
+    """
+    The Employee at the end of the edge.
+    """
+    node: Employee!
+}
+
+input EmployeeOrderBy @oneOf {
+    fields: [EmployeeFieldOrdering!]
+}
+
+enum EmployeePropertyName {
+    id
+    name
+}
+
+input EmployeeFieldOrdering {
+    direction: OrderingDirection
+    field: EmployeePropertyName
+}
+
+"""
+"""
+type PatientEncounter implements Node {
+    _id: ID!
+    oxygenSaturation: Float
+    id: String
+    bloodPressureDiastolic: Float
+    patientId: String
+    chiefComplaint: String
+    bloodPressureSystolic: Float
+    historyOfPresentIllness: String
+    pulseRate: Float
+
+    """
+    Get the linked Employee.
+    """
+    patient: Employee
+}
+
+"""
+A set of Patient Encounters.
+"""
+type PatientEncounterSet {
+    """
+    A list of Patient Encounters.
+    """
+    list(after: String, first: Int, orderBy: PatientEncounterOrderBy): PatientEncounterPage
+
+    """
+    Get the linked Employee set.
+    """
+    patientSet: EmployeeSet
+}
+
+"""
+A filter for a set of Patient Encounters.
+"""
+input PatientEncounterSetFilter @oneOf {
+    id: StringFilter
+    patientId: StringFilter
+    chiefComplaint: StringFilter
+    historyOfPresentIllness: StringFilter
+}
+
+"""
+A page of Patient Encounters.
+"""
+type PatientEncounterPage {
+    """
+    A list of Patient Encounters.
+    """
+    edges: [PatientEncounterEdge!]
+
+    """
+    Information about pagination for this page.
+    """
+    pageInfo: PageInfo
+}
+
+"""
+A Patient Encounter edge.
+"""
+type PatientEncounterEdge {
+    """
+    The Patient Encounter at the end of the edge.
+    """
+    node: PatientEncounter!
+}
+
+input PatientEncounterOrderBy @oneOf {
+    fields: [PatientEncounterFieldOrdering!]
+}
+
+enum PatientEncounterPropertyName {
+    oxygenSaturation
+    id
+    date
+    bloodPressureDiastolic
+    patientId
+    chiefComplaint
+    bloodPressureSystolic
+    historyOfPresentIllness
+    pulseRate
+}
+
+input PatientEncounterFieldOrdering {
+    direction: OrderingDirection
+    field: PatientEncounterPropertyName
+}
+
+"""
+"""
+type Slug implements Node {
+    _id: ID!
+    formId: String
+    slug: String
+
+    """
+    Get the linked Form.
+    """
+    form: Form
+}
+
+"""
+A set of Slugs.
+"""
+type SlugSet {
+    """
+    A list of Slugs.
+    """
+    list(after: String, first: Int, orderBy: SlugOrderBy): SlugPage
+
+    """
+    Get the linked Form set.
+    """
+    formSet: FormSet
+}
+
+"""
+A filter for a set of Slugs.
+"""
+input SlugSetFilter @oneOf {
+    formId: StringFilter
+    slug: StringFilter
+}
+
+"""
+A page of Slugs.
+"""
+type SlugPage {
+    """
+    A list of Slugs.
+    """
+    edges: [SlugEdge!]
+
+    """
+    Information about pagination for this page.
+    """
+    pageInfo: PageInfo
+}
+
+"""
+A Slug edge.
+"""
+type SlugEdge {
+    """
+    The Slug at the end of the edge.
+    """
+    node: Slug!
+}
+
+input SlugOrderBy @oneOf {
+    fields: [SlugFieldOrdering!]
+}
+
+enum SlugPropertyName {
+    formId
+    slug
+}
+
+input SlugFieldOrdering {
+    direction: OrderingDirection
+    field: SlugPropertyName
+}
+
+"""
+"""
+type StreamlineInterestResponse implements Node {
+    _id: ID!
+    message: String
+    id: String
+    email: String
+    name: String
+}
+
+"""
+A set of Streamline waitlist responses.
+"""
+type StreamlineInterestResponseSet {
+    """
+    A list of Streamline waitlist responses.
+    """
+    list(
+        after: String
+        first: Int
+        orderBy: StreamlineInterestResponseOrderBy
+    ): StreamlineInterestResponsePage
+}
+
+"""
+A filter for a set of Streamline waitlist responses.
+"""
+input StreamlineInterestResponseSetFilter @oneOf {
+    message: StringFilter
+    id: StringFilter
+    email: StringFilter
+    name: StringFilter
+}
+
+"""
+A page of Streamline waitlist responses.
+"""
+type StreamlineInterestResponsePage {
+    """
+    A list of Streamline waitlist responses.
+    """
+    edges: [StreamlineInterestResponseEdge!]
+
+    """
+    Information about pagination for this page.
+    """
+    pageInfo: PageInfo
+}
+
+"""
+A Streamline interest response edge.
+"""
+type StreamlineInterestResponseEdge {
+    """
+    The Streamline interest response at the end of the edge.
+    """
+    node: StreamlineInterestResponse!
+}
+
+input StreamlineInterestResponseOrderBy @oneOf {
+    fields: [StreamlineInterestResponseFieldOrdering!]
+}
+
+enum StreamlineInterestResponsePropertyName {
+    message
+    id
+    email
+    name
+    createdAt
+}
+
+input StreamlineInterestResponseFieldOrdering {
+    direction: OrderingDirection
+    field: StreamlineInterestResponsePropertyName
+}
+
+"""
+"""
+type MedicalClearanceApplications implements Node {
+    _id: ID!
+    placeOfBirth: String
+    id: String
+    email: String
+    heightInches: Int
+    purposeOfExam: String
+    employmentType: String
+    phone: String
+    sex: String
+    agencyOfSponsor: String
+    employeeOrApplicantName: String
+    healthInsurancePlan: String
+    presentPost: String
+    proposedPost: String
+    lastName: String
+    nickname: String
+    middleInitial: String
+    firstName: String
+    specialAssignment: String
+    examineeType: String
+    medications: [String!]
+}
+
+"""
+A set of Medical clearance applications.
+"""
+type MedicalClearanceApplicationsSet {
+    """
+    A list of Medical clearance applications.
+    """
+    list(
+        after: String
+        first: Int
+        orderBy: MedicalClearanceApplicationsOrderBy
+    ): MedicalClearanceApplicationsPage
+}
+
+"""
+A filter for a set of Medical clearance applications.
+"""
+input MedicalClearanceApplicationsSetFilter @oneOf {
+    placeOfBirth: StringFilter
+    id: StringFilter
+    email: StringFilter
+    purposeOfExam: StringFilter
+    employmentType: StringFilter
+    phone: StringFilter
+    sex: StringFilter
+    agencyOfSponsor: StringFilter
+    employeeOrApplicantName: StringFilter
+    healthInsurancePlan: StringFilter
+    presentPost: StringFilter
+    proposedPost: StringFilter
+    lastName: StringFilter
+    nickname: StringFilter
+    middleInitial: StringFilter
+    firstName: StringFilter
+    specialAssignment: StringFilter
+    examineeType: StringFilter
+}
+
+"""
+A page of Medical clearance applications.
+"""
+type MedicalClearanceApplicationsPage {
+    """
+    A list of Medical clearance applications.
+    """
+    edges: [MedicalClearanceApplicationsEdge!]
+
+    """
+    Information about pagination for this page.
+    """
+    pageInfo: PageInfo
+}
+
+"""
+A Medical clearance application edge.
+"""
+type MedicalClearanceApplicationsEdge {
+    """
+    The Medical clearance application at the end of the edge.
+    """
+    node: MedicalClearanceApplications!
+}
+
+input MedicalClearanceApplicationsOrderBy @oneOf {
+    fields: [MedicalClearanceApplicationsFieldOrdering!]
+}
+
+enum MedicalClearanceApplicationsPropertyName {
+    placeOfBirth
+    id
+    email
+    heightInches
+    medicalHistory
+    dateOfBirth
+    purposeOfExam
+    createdAt
+    employmentType
+    phone
+    sex
+    hospitalizations
+    agencyOfSponsor
+    employeeOrApplicantName
+    healthInsurancePlan
+    presentPost
+    estimatedDateOfArrival
+    proposedPost
+    lastName
+    nickname
+    middleInitial
+    firstName
+    estimatedDateOfDeparture
+    specialAssignment
+    examineeType
+    medications
+}
+
+input MedicalClearanceApplicationsFieldOrdering {
+    direction: OrderingDirection
+    field: MedicalClearanceApplicationsPropertyName
+}
+
+"""
+"""
+type Form implements Node {
+    _id: ID!
+    id: String
+    isPhi: Boolean
+    isPublicSubmissionAllowed: Boolean
+    spec: String
+    theme: String
+    actionTypeRid: String
+    title: String
+
+    """
+    Get the linked Portal token.
+    """
+    portalTokens: PortalTokenSet
+
+    """
+    Get the linked Form deployment.
+    """
+    formDeployments: FormDeploymentSet
+
+    """
+    Get the linked Slug.
+    """
+    slugs: SlugSet
+}
+
+"""
+A set of Forms.
+"""
+type FormSet {
+    """
+    A list of Forms.
+    """
+    list(after: String, first: Int, orderBy: FormOrderBy): FormPage
+
+    """
+    Get the linked Portal token set.
+    """
+    portalTokens: PortalTokenSet
+
+    """
+    Get the linked Form deployment set.
+    """
+    formDeployments: FormDeploymentSet
+
+    """
+    Get the linked Slug set.
+    """
+    slugs: SlugSet
+}
+
+"""
+A filter for a set of Forms.
+"""
+input FormSetFilter @oneOf {
+    id: StringFilter
+    spec: StringFilter
+    theme: StringFilter
+    actionTypeRid: StringFilter
+    title: StringFilter
+}
+
+"""
+A page of Forms.
+"""
+type FormPage {
+    """
+    A list of Forms.
+    """
+    edges: [FormEdge!]
+
+    """
+    Information about pagination for this page.
+    """
+    pageInfo: PageInfo
+}
+
+"""
+A Form edge.
+"""
+type FormEdge {
+    """
+    The Form at the end of the edge.
+    """
+    node: Form!
+}
+
+input FormOrderBy @oneOf {
+    fields: [FormFieldOrdering!]
+}
+
+enum FormPropertyName {
+    id
+    isPhi
+    isPublicSubmissionAllowed
+    updatedAt
+    spec
+    theme
+    actionTypeRid
+    title
+    createdAt
+}
+
+input FormFieldOrdering {
+    direction: OrderingDirection
+    field: FormPropertyName
+}
+
+"""
+"""
+type FormDeployment implements Node {
+    _id: ID!
+    id: String
+    isPhi: Boolean
+    formId: String
+    spec: String
+    theme: String
+    createdBy: String
+    actionTypeRid: String
+
+    """
+    Get the linked Form.
+    """
+    form: Form
+    createdByUser: User
+}
+
+"""
+A set of Form deployments.
+"""
+type FormDeploymentSet {
+    """
+    A list of Form deployments.
+    """
+    list(after: String, first: Int, orderBy: FormDeploymentOrderBy): FormDeploymentPage
+
+    """
+    Get the linked Form set.
+    """
+    formSet: FormSet
+}
+
+"""
+A filter for a set of Form deployments.
+"""
+input FormDeploymentSetFilter @oneOf {
+    id: StringFilter
+    formId: StringFilter
+    spec: StringFilter
+    theme: StringFilter
+    createdBy: StringFilter
+    actionTypeRid: StringFilter
+}
+
+"""
+A page of Form deployments.
+"""
+type FormDeploymentPage {
+    """
+    A list of Form deployments.
+    """
+    edges: [FormDeploymentEdge!]
+
+    """
+    Information about pagination for this page.
+    """
+    pageInfo: PageInfo
+}
+
+"""
+A Form deployment edge.
+"""
+type FormDeploymentEdge {
+    """
+    The Form deployment at the end of the edge.
+    """
+    node: FormDeployment!
+}
+
+input FormDeploymentOrderBy @oneOf {
+    fields: [FormDeploymentFieldOrdering!]
+}
+
+enum FormDeploymentPropertyName {
+    id
+    isPhi
+    formId
+    spec
+    theme
+    createdBy
+    actionTypeRid
+    createdAt
+}
+
+input FormDeploymentFieldOrdering {
+    direction: OrderingDirection
+    field: FormDeploymentPropertyName
+}
+
+enum OrderingDirection {
+    """
+    Ascending order
+    """
+    asc
+
+    """
+    Descending order
+    """
+    desc
+}
+
+"""
+A Foundry user or service account.
+"""
+type User implements Node {
+    _id: ID!
+
+    """
+    The unique identifier for the User.
+    """
+    id: String!
+
+    """
+    The unique username for the User.
+    """
+    username: String!
+
+    """
+    The given name of the User.
+    """
+    givenName: String
+
+    """
+    The family name (last name) of the User.
+    """
+    familyName: String
+
+    """
+    The email at which to contact a User. Multiple Users may have the same email address.
+    """
+    email: String
+
+    """
+    The URL of the User's profile picture.
+    """
+    profilePictureUrl: String
+}
+
+"""
+Information about pagination for a page of records.
+"""
+type PageInfo {
+    """
+    Whether there are additional records after this page.
+    """
+    hasNextPage: Boolean!
+
+    """
+    A cursor that can be used to continue forward pagination.
+    """
+    endCursor: String
+}
+
+"""
+A record with a global id.
+"""
+interface Node {
+    """
+    The global id of the record.
+    """
+    _id: ID!
+}
+
+"""
+A filter for a String field.
+"""
+input StringFilter @oneOf {
+    """
+    The field must be equal to the provided value.
+    """
+    eq: String
+
+    """
+    The field must contain the provided substring.
+    """
+    contains: String
+}
+
+type Query {
+    """
+    Get a single Contact response.
+    """
+    contactResponse(id: String!): ContactResponse
+
+    """
+    Get a single Portal token.
+    """
+    portalToken(id: String!): PortalToken
+
+    """
+    Get a single Investigation case.
+    """
+    investigationCase(id: String!): InvestigationCase
+
+    """
+    Get a single Provisional offer.
+    """
+    provisionalOffer(id: String!): ProvisionalOffer
+
+    """
+    Get a single Employee.
+    """
+    employee(id: String!): Employee
+
+    """
+    Get a single Patient Encounter.
+    """
+    patientEncounter(id: String!): PatientEncounter
+
+    """
+    Get a single Slug.
+    """
+    slug(slug: String!): Slug
+
+    """
+    Get a single Streamline interest response.
+    """
+    streamlineInterestResponse(id: String!): StreamlineInterestResponse
+
+    """
+    Get a single Medical clearance application.
+    """
+    medicalClearanceApplications(id: String!): MedicalClearanceApplications
+
+    """
+    Get a single Form.
+    """
+    form(id: String!): Form
+
+    """
+    Get a single Form deployment.
+    """
+    formDeployment(id: String!): FormDeployment
+
+    """
+    Search or list Contact responses.
+    """
+    contactResponseSearch(
+        """
+        Filter for the set of Contact responses.
+        """
+        where: ContactResponseSetFilter
+    ): ContactResponseSet
+
+    """
+    Search or list Portal tokens.
+    """
+    portalTokenSearch(
+        """
+        Filter for the set of Portal tokens.
+        """
+        where: PortalTokenSetFilter
+    ): PortalTokenSet
+
+    """
+    Search or list Investigation cases.
+    """
+    investigationCaseSearch(
+        """
+        Filter for the set of Investigation cases.
+        """
+        where: InvestigationCaseSetFilter
+    ): InvestigationCaseSet
+
+    """
+    Search or list Provisional offers.
+    """
+    provisionalOfferSearch(
+        """
+        Filter for the set of Provisional offers.
+        """
+        where: ProvisionalOfferSetFilter
+    ): ProvisionalOfferSet
+
+    """
+    Search or list Employees.
+    """
+    employeeSearch(
+        """
+        Filter for the set of Employees.
+        """
+        where: EmployeeSetFilter
+    ): EmployeeSet
+
+    """
+    Search or list Patient Encounters.
+    """
+    patientEncounterSearch(
+        """
+        Filter for the set of Patient Encounters.
+        """
+        where: PatientEncounterSetFilter
+    ): PatientEncounterSet
+
+    """
+    Search or list Slugs.
+    """
+    slugSearch(
+        """
+        Filter for the set of Slugs.
+        """
+        where: SlugSetFilter
+    ): SlugSet
+
+    """
+    Search or list Streamline waitlist responses.
+    """
+    streamlineInterestResponseSearch(
+        """
+        Filter for the set of Streamline waitlist responses.
+        """
+        where: StreamlineInterestResponseSetFilter
+    ): StreamlineInterestResponseSet
+
+    """
+    Search or list Medical clearance applications.
+    """
+    medicalClearanceApplicationsSearch(
+        """
+        Filter for the set of Medical clearance applications.
+        """
+        where: MedicalClearanceApplicationsSetFilter
+    ): MedicalClearanceApplicationsSet
+
+    """
+    Search or list Forms.
+    """
+    formSearch(
+        """
+        Filter for the set of Forms.
+        """
+        where: FormSetFilter
+    ): FormSet
+
+    """
+    Search or list Form deployments.
+    """
+    formDeploymentSearch(
+        """
+        Filter for the set of Form deployments.
+        """
+        where: FormDeploymentSetFilter
+    ): FormDeploymentSet
+
+    """
+    The current User.
+    """
+    viewer: User
+
+    """
+    Get a single User.
+    """
+    user(id: String!): User
+
+    """
+    Get a record given its global id.
+    """
+    node(
+        """
+        The global id of the record.
+        """
+        _id: ID!
+    ): Node
+}
+
+type Mutation {
+    editEmployee(Employee: String!, name: String!): Boolean
+    createProvisionalOffer(email: String!, name: String!): Boolean
+    createContactResponse(message: String!, email: String!, name: String!, interest_level: String): Boolean
+    revokePortalToken(portal_token: String!): Boolean
+    createEmployee(name: String!): Boolean
+    deletePatientEncounter(PatientEncounter: String!): Boolean
+    createFormDeployment(
+        is_phi: Boolean
+        spec: String!
+        theme: String
+        form: String!
+        action_type_rid: String!
+    ): Boolean
+    createForm(spec: String, title: String!, action_type_rid: String): Boolean
+    editForm(
+        is_phi: Boolean
+        spec: String
+        theme: String
+        title: String
+        Form: String!
+        is_public_submission_allowed: Boolean
+        action_type_rid: String
+    ): Boolean
+    deleteEmployee(Employee: String!): Boolean
+    deleteForm(Form: String!): Boolean
+    deleteSlug(slug: String!): Boolean
+    createSlug(slug: String!, form: String!): Boolean
+    deleteContactResponse(ContactResponse: String!): Boolean
+    deleteProvisionalOffer(ProvisionalOffer: String!): Boolean
+    createStreamlineInterestResponse(message: String, email: String!, name: String): Boolean
+    deleteMedicalClearanceApplication(MedicalClearanceApplications: String!): Boolean
+}
