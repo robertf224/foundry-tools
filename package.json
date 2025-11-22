@@ -14,7 +14,8 @@
         "prettier-plugin-tailwindcss": "^0.6.12",
         "syncpack": "^13.0.4",
         "turbo": "2.5.1",
-        "typescript": "~5.8.3"
+        "typescript": "~5.8.3",
+        "@changesets/cli": "^2.29.7"
     },
     "packageManager": "pnpm@9.6.0",
     "engines": {
