@@ -740,9 +740,27 @@ export default {
         },
         {
             name: "ValueReferenceExpression",
-            description: "Reads a value from scope by path.",
+            description: "Reads a value from the root expression scope by path.",
             type: o.struct({
                 fields: [
+                    {
+                        name: "path",
+                        displayName: "Path",
+                        type: o.list({ elementType: o.string({}) }),
+                    },
+                ],
+            }),
+        },
+        {
+            name: "LocalReferenceExpression",
+            description: "Reads a lexically scoped expression binding by path.",
+            type: o.struct({
+                fields: [
+                    {
+                        name: "binding",
+                        displayName: "Binding",
+                        type: o.string({}),
+                    },
                     {
                         name: "path",
                         displayName: "Path",
@@ -760,6 +778,64 @@ export default {
                         name: "path",
                         displayName: "Path",
                         type: o.list({ elementType: o.string({}) }),
+                    },
+                ],
+            }),
+        },
+        {
+            name: "StructExpressionField",
+            description: "A named field constructed by a struct expression.",
+            type: o.struct({
+                fields: [
+                    {
+                        name: "name",
+                        displayName: "Name",
+                        type: o.string({}),
+                    },
+                    {
+                        name: "value",
+                        displayName: "Value",
+                        type: o.ref({ name: "Expression" }),
+                    },
+                ],
+            }),
+        },
+        {
+            name: "StructExpression",
+            description: "Constructs a struct value from field expressions.",
+            type: o.struct({
+                fields: [
+                    {
+                        name: "fields",
+                        displayName: "Fields",
+                        type: o.list({
+                            elementType: o.ref({
+                                name: "StructExpressionField",
+                            }),
+                        }),
+                    },
+                ],
+            }),
+        },
+        {
+            name: "MapExpression",
+            description: "Maps each element of a list to a new value.",
+            type: o.struct({
+                fields: [
+                    {
+                        name: "source",
+                        displayName: "Source",
+                        type: o.ref({ name: "Expression" }),
+                    },
+                    {
+                        name: "binding",
+                        displayName: "Binding",
+                        type: o.string({}),
+                    },
+                    {
+                        name: "body",
+                        displayName: "Body",
+                        type: o.ref({ name: "Expression" }),
                     },
                 ],
             }),
@@ -814,6 +890,18 @@ export default {
                     {
                         name: "contextReference",
                         type: o.ref({ name: "ContextReferenceExpression" }),
+                    },
+                    {
+                        name: "localReference",
+                        type: o.ref({ name: "LocalReferenceExpression" }),
+                    },
+                    {
+                        name: "struct",
+                        type: o.ref({ name: "StructExpression" }),
+                    },
+                    {
+                        name: "map",
+                        type: o.ref({ name: "MapExpression" }),
                     },
                     {
                         name: "functionCall",

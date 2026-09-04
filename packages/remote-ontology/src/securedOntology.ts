@@ -13,13 +13,8 @@ import type {
 
 export type FixedActionParameterValue = Expression;
 
-export type FixedActionParameterValues<
-    Ontology extends OntologyDefinition = OntologyDefinition,
-> = {
-    [ActionTypeName in Extract<
-        keyof Ontology["actionTypes"],
-        string
-    >]?: {
+export type FixedActionParameterValues<Ontology extends OntologyDefinition = OntologyDefinition> = {
+    [ActionTypeName in Extract<keyof Ontology["actionTypes"], string>]?: {
         [ParameterName in Extract<
             keyof Ontology["actionTypes"][ActionTypeName]["parameters"],
             string
@@ -84,7 +79,11 @@ function getObjectType(ir: OntologyIR, objectTypeName: string): ObjectTypeDef {
     return objectType;
 }
 
-function getObjectReferenceObjectType(ir: OntologyIR, actionType: ActionTypeDef, reference: ValueReferenceExpression): string {
+function getObjectReferenceObjectType(
+    ir: OntologyIR,
+    actionType: ActionTypeDef,
+    reference: ValueReferenceExpression
+): string {
     const parameter = actionType.parameters.find((candidate) => candidate.name === reference.path[0]);
     if (!parameter) {
         throw new Error(`Unknown action parameter "${reference.path[0] ?? ""}".`);
@@ -101,12 +100,46 @@ function evaluateExpression<Context>(opts: {
     ctx: Context;
     parameters: Record<string, unknown>;
     resolveFixedParameter: (parameterName: string) => unknown;
+    locals?: ReadonlyMap<string, unknown>;
 }): unknown {
     switch (opts.expression.kind) {
         case "contextReference":
             return getPath(opts.ctx, opts.expression.value.path);
         case "literal":
             return opts.expression.value.value;
+        case "localReference": {
+            const value = opts.locals?.get(opts.expression.value.binding);
+            return opts.expression.value.path.length > 0 ? getPath(value, opts.expression.value.path) : value;
+        }
+        case "struct":
+            return Object.fromEntries(
+                opts.expression.value.fields.map((field) => [
+                    field.name,
+                    evaluateExpression({
+                        ...opts,
+                        expression: field.value,
+                    }),
+                ])
+            );
+        case "map": {
+            const source = evaluateExpression({
+                ...opts,
+                expression: opts.expression.value.source,
+            });
+            if (source === undefined) return undefined;
+            if (!Array.isArray(source)) {
+                throw new Error("Map expression source must resolve to a list.");
+            }
+            return source.map((item) => {
+                const locals = new Map(opts.locals);
+                locals.set(opts.expression.value.binding, item);
+                return evaluateExpression({
+                    ...opts,
+                    expression: opts.expression.value.body,
+                    locals,
+                });
+            });
+        }
         case "functionCall":
             switch (opts.expression.value.kind) {
                 case "uuid":
@@ -138,7 +171,9 @@ function isActionParameterFixed<Context>(
     actionName: string,
     parameterName: string
 ): boolean {
-    return getFixedActionParameterValues(fixedActionParameterValues, actionName)?.[parameterName] !== undefined;
+    return (
+        getFixedActionParameterValues(fixedActionParameterValues, actionName)?.[parameterName] !== undefined
+    );
 }
 
 function projectExpression<Context>(opts: {
@@ -154,37 +189,69 @@ function projectExpression<Context>(opts: {
 }): Expression | undefined {
     switch (opts.expression.kind) {
         case "contextReference":
-            return opts.clientContextMode === "forward" && hasPath(opts.clientContext, opts.expression.value.path)
+            return opts.clientContextMode === "forward" &&
+                hasPath(opts.clientContext, opts.expression.value.path)
                 ? opts.expression
                 : undefined;
         case "literal":
         case "functionCall":
+        case "localReference":
             return opts.expression;
+        case "struct": {
+            const fields = opts.expression.value.fields.map((field) => ({
+                ...field,
+                value: projectExpression({
+                    ...opts,
+                    expression: field.value,
+                }),
+            }));
+            return fields.some((field) => field.value === undefined)
+                ? undefined
+                : {
+                      kind: "struct",
+                      value: {
+                          fields: fields as Array<{
+                              name: string;
+                              value: Expression;
+                          }>,
+                      },
+                  };
+        }
+        case "map": {
+            const source = projectExpression({
+                ...opts,
+                expression: opts.expression.value.source,
+            });
+            const body = projectExpression({
+                ...opts,
+                expression: opts.expression.value.body,
+            });
+            return source && body
+                ? {
+                      kind: "map",
+                      value: {
+                          source,
+                          binding: opts.expression.value.binding,
+                          body,
+                      },
+                  }
+                : undefined;
+        }
         case "valueReference": {
             const [parameterName, ...path] = opts.expression.value.path;
             if (!parameterName) return undefined;
             if (opts.visibleParameters.has(parameterName)) {
-                const parameter = getActionType(
-                    opts.ir,
-                    opts.actionName
-                ).parameters.find(
-                    (candidate) =>
-                        candidate.name === parameterName
+                const parameter = getActionType(opts.ir, opts.actionName).parameters.find(
+                    (candidate) => candidate.name === parameterName
                 );
-                let type = parameter
-                    ? resolveType(opts.ir, parameter.type)
-                    : undefined;
+                let type = parameter ? resolveType(opts.ir, parameter.type) : undefined;
                 while (type?.kind === "optional") {
                     type = resolveType(opts.ir, type.value.type);
                 }
                 if (
                     path.length > 0 &&
                     type?.kind === "objectReference" &&
-                    !(
-                        opts.allowedObjectTypeProperties[
-                            type.value.objectType
-                        ] ?? []
-                    ).includes(path[0]!)
+                    !(opts.allowedObjectTypeProperties[type.value.objectType] ?? []).includes(path[0]!)
                 ) {
                     return undefined;
                 }
@@ -215,7 +282,8 @@ function projectExpression<Context>(opts: {
                 return nestedValue === undefined ? undefined : literal(nestedValue);
             }
             if (fixedValue.kind === "contextReference") {
-                return opts.clientContextMode === "forward" && hasPath(opts.clientContext, fixedValue.value.path)
+                return opts.clientContextMode === "forward" &&
+                    hasPath(opts.clientContext, fixedValue.value.path)
                     ? fixedValue
                     : undefined;
             }
@@ -289,7 +357,11 @@ function projectLogicStep<Context>(opts: {
             };
         }
         case "updateObject": {
-            const objectTypeName = getObjectReferenceObjectType(opts.ir, opts.actionType, opts.step.value.object);
+            const objectTypeName = getObjectReferenceObjectType(
+                opts.ir,
+                opts.actionType,
+                opts.step.value.object
+            );
             const values = projectAssignments({
                 assignments: opts.step.value.values,
                 serverContext: opts.serverContext,
@@ -358,7 +430,12 @@ function typeReferencesObjectTypes(type: TypeDef, ir: OntologyIR, seen = new Set
     }
 }
 
-function collectReferencedNamedTypes(type: TypeDef, ir: OntologyIR, into: Set<string>, seen = new Set<string>()): void {
+function collectReferencedNamedTypes(
+    type: TypeDef,
+    ir: OntologyIR,
+    into: Set<string>,
+    seen = new Set<string>()
+): void {
     if (type.kind === "ref") {
         if (seen.has(type.value.name)) return;
         seen.add(type.value.name);
@@ -438,40 +515,33 @@ export function projectRemoteOntologyIR<
             : opts.ir.objectTypes.map((objectType) => objectType.name)
     );
 
-    const objectTypes =
-        filterSchemaByAuthorization
-            ? opts.ir.objectTypes
-                  .filter((objectType) => visibleObjectTypes.has(objectType.name))
-                  .map((objectType) => {
-                      const allowed = new Set(opts.allowedObjectTypeProperties[objectType.name] ?? []);
-                      return {
-                          ...objectType,
-                          title:
-                              objectType.title && allowed.has(objectType.title) ? objectType.title : undefined,
-                          properties: objectType.properties.filter((property) => allowed.has(property.name)),
-                      };
-                  })
-            : opts.ir.objectTypes;
-
-    const linkTypes =
-        filterSchemaByAuthorization
-            ? opts.ir.linkTypes.filter((link) => {
-                  if (
-                      !visibleObjectTypes.has(link.source.objectType) ||
-                      !visibleObjectTypes.has(link.target.objectType)
-                  ) {
-                      return false;
-                  }
-                  if (!link.foreignKey) return true;
-                  const sourceAllowed = new Set(
-                      opts.allowedObjectTypeProperties[link.source.objectType] ?? []
-                  );
-                  const targetAllowed = new Set(
-                      opts.allowedObjectTypeProperties[link.target.objectType] ?? []
-                  );
-                  return sourceAllowed.has(link.foreignKey) || targetAllowed.has(link.foreignKey);
+    const objectTypes = filterSchemaByAuthorization
+        ? opts.ir.objectTypes
+              .filter((objectType) => visibleObjectTypes.has(objectType.name))
+              .map((objectType) => {
+                  const allowed = new Set(opts.allowedObjectTypeProperties[objectType.name] ?? []);
+                  return {
+                      ...objectType,
+                      title: objectType.title && allowed.has(objectType.title) ? objectType.title : undefined,
+                      properties: objectType.properties.filter((property) => allowed.has(property.name)),
+                  };
               })
-            : opts.ir.linkTypes;
+        : opts.ir.objectTypes;
+
+    const linkTypes = filterSchemaByAuthorization
+        ? opts.ir.linkTypes.filter((link) => {
+              if (
+                  !visibleObjectTypes.has(link.source.objectType) ||
+                  !visibleObjectTypes.has(link.target.objectType)
+              ) {
+                  return false;
+              }
+              if (!link.foreignKey) return true;
+              const sourceAllowed = new Set(opts.allowedObjectTypeProperties[link.source.objectType] ?? []);
+              const targetAllowed = new Set(opts.allowedObjectTypeProperties[link.target.objectType] ?? []);
+              return sourceAllowed.has(link.foreignKey) || targetAllowed.has(link.foreignKey);
+          })
+        : opts.ir.linkTypes;
 
     const visibleActions =
         opts.visibleActionTypes === undefined || opts.visibleActionTypes === "all"
@@ -600,10 +670,7 @@ export function applyFixedActionParameterValues<
     parameters: Record<string, unknown>;
     fixedActionParameterValues?: FixedActionParameterValues<Ontology>;
 }): Record<string, unknown> {
-    const fixedValues = getFixedActionParameterValues(
-        opts.fixedActionParameterValues,
-        opts.actionType
-    );
+    const fixedValues = getFixedActionParameterValues(opts.fixedActionParameterValues, opts.actionType);
     if (!fixedValues) return opts.parameters;
 
     const parameters = { ...opts.parameters };

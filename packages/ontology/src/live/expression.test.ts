@@ -1,7 +1,4 @@
-import {
-    createCollection,
-    localOnlyCollectionOptions,
-} from "@tanstack/db";
+import { createCollection, localOnlyCollectionOptions } from "@tanstack/db";
 import { describe, expect, it } from "vitest";
 import { o } from "../ir/index.js";
 import { evaluateExpression } from "./expression.js";
@@ -45,6 +42,21 @@ const ir: OntologyIR = {
                         objectType: "User",
                     }),
                 },
+                {
+                    name: "entries",
+                    displayName: "Entries",
+                    type: o.list({
+                        elementType: o.struct({
+                            fields: [
+                                {
+                                    name: "code",
+                                    displayName: "Code",
+                                    type: o.string({}),
+                                },
+                            ],
+                        }),
+                    }),
+                },
             ],
             logic: [],
         },
@@ -54,13 +66,9 @@ const ir: OntologyIR = {
 describe("evaluateExpression", () => {
     it("resolves object-reference paths through the read transaction", async () => {
         const users = createCollection(
-            localOnlyCollectionOptions<
-                OntologyObject,
-                string | number
-            >({
+            localOnlyCollectionOptions<OntologyObject, string | number>({
                 id: "expression-users",
-                getKey: (user) =>
-                    user.id as string | number,
+                getKey: (user) => user.id as string | number,
                 initialData: [
                     {
                         id: "user-1",
@@ -81,8 +89,7 @@ describe("evaluateExpression", () => {
                         path: ["user", "name"],
                     },
                 } as Expression,
-                resolveParameter: () =>
-                    Promise.resolve("user-1"),
+                resolveParameter: () => Promise.resolve("user-1"),
                 context: {},
                 tx: createReadTx({ User: users }),
             })
@@ -106,11 +113,77 @@ describe("evaluateExpression", () => {
                         path: ["user", "id"],
                     },
                 } as Expression,
-                resolveParameter: () =>
-                    Promise.resolve("user-1"),
+                resolveParameter: () => Promise.resolve("user-1"),
                 context: {},
                 tx: { query } as never,
             })
         ).resolves.toBe("user-1");
+    });
+
+    it("maps list elements into constructed structs", async () => {
+        await expect(
+            evaluateExpression({
+                ir,
+                actionTypeName: "assign",
+                expression: o.Expression.map({
+                    source: o.Expression.valueReference({
+                        path: ["entries"],
+                    }),
+                    binding: "entry",
+                    body: o.Expression.struct({
+                        fields: [
+                            {
+                                name: "renamedCode",
+                                value: o.Expression.localReference({
+                                    binding: "entry",
+                                    path: ["code"],
+                                }),
+                            },
+                            {
+                                name: "actor",
+                                value: o.Expression.contextReference({
+                                    path: ["user"],
+                                }),
+                            },
+                        ],
+                    }),
+                }),
+                resolveParameter: (name) =>
+                    Promise.resolve(name === "entries" ? [{ code: "alpha" }, { code: "beta" }] : undefined),
+                context: { user: "user-1" },
+                tx: createReadTx({}),
+            })
+        ).resolves.toEqual([
+            {
+                renamedCode: "alpha",
+                actor: "user-1",
+            },
+            {
+                renamedCode: "beta",
+                actor: "user-1",
+            },
+        ]);
+    });
+
+    it("preserves an undefined optional map source", async () => {
+        await expect(
+            evaluateExpression({
+                ir,
+                actionTypeName: "assign",
+                expression: o.Expression.map({
+                    source: o.Expression.valueReference({
+                        path: ["entries"],
+                    }),
+                    binding: "entry",
+                    body: o.Expression.localReference({
+                        binding: "entry",
+                        path: [],
+                    }),
+                }),
+                resolveParameter: () => Promise.resolve(undefined),
+                context: {},
+                tx: createReadTx({}),
+            })
+        ).resolves.toBeUndefined();
     });
 });

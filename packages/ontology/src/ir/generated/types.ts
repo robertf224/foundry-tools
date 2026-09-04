@@ -278,14 +278,38 @@ export type ActionParameterDef = {
     defaultValue?: Expression;
 };
 
-/** Reads a value from scope by path. */
+/** Reads a value from the root expression scope by path. */
 export type ValueReferenceExpression = {
+    path: Array<string>;
+};
+
+/** Reads a lexically scoped expression binding by path. */
+export type LocalReferenceExpression = {
+    binding: string;
     path: Array<string>;
 };
 
 /** Reads a value from context by path. */
 export type ContextReferenceExpression = {
     path: Array<string>;
+};
+
+/** A named field constructed by a struct expression. */
+export type StructExpressionField = {
+    name: string;
+    value: Expression;
+};
+
+/** Constructs a struct value from field expressions. */
+export type StructExpression = {
+    fields: Array<StructExpressionField>;
+};
+
+/** Maps each element of a list to a new value. */
+export type MapExpression = {
+    source: Expression;
+    binding: string;
+    body: Expression;
 };
 
 /** Generates a UUID value. */
@@ -310,6 +334,9 @@ export type FunctionCallExpression = v.Union<{
 export type Expression = v.Union<{
     valueReference: ValueReferenceExpression;
     contextReference: ContextReferenceExpression;
+    localReference: LocalReferenceExpression;
+    struct: StructExpression;
+    map: MapExpression;
     functionCall: FunctionCallExpression;
     literal: LiteralExpression;
 }>;

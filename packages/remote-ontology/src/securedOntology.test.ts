@@ -119,6 +119,105 @@ describe("secured ontology projection", () => {
         ]);
     });
 
+    it("projects map expressions over visible parameters", () => {
+        const mapping = o.Expression.map({
+            source: o.Expression.valueReference({
+                path: ["entries"],
+            }),
+            binding: "entry",
+            body: o.Expression.struct({
+                fields: [
+                    {
+                        name: "renamedCode",
+                        value: o.Expression.localReference({
+                            binding: "entry",
+                            path: ["code"],
+                        }),
+                    },
+                ],
+            }),
+        });
+        const action = ir.actionTypes[0]!;
+        const step = action.logic[0]!;
+        if (step.kind !== "createObject") {
+            throw new Error("Expected create-object logic.");
+        }
+        const projected = projectRemoteOntologyIR({
+            ir: {
+                ...ir,
+                objectTypes: ir.objectTypes.map(
+                    (objectType) => ({
+                        ...objectType,
+                        properties: [
+                            ...objectType.properties,
+                            {
+                                name: "entries",
+                                displayName: "Entries",
+                                type: o.list({
+                                    elementType: o.unknown({}),
+                                }),
+                            },
+                        ],
+                    })
+                ),
+                actionTypes: [
+                    {
+                        ...action,
+                        parameters: [
+                            ...action.parameters,
+                            {
+                                name: "entries",
+                                displayName: "Entries",
+                                type: o.list({
+                                    elementType: o.unknown({}),
+                                }),
+                            },
+                        ],
+                        logic: [
+                            {
+                                ...step,
+                                value: {
+                                    ...step.value,
+                                    values: [
+                                        ...step.value.values,
+                                        {
+                                            property: ["entries"],
+                                            value: mapping,
+                                        },
+                                    ],
+                                },
+                            },
+                        ],
+                    },
+                ],
+            },
+            serverContext: {},
+            allowedObjectTypeProperties: {
+                Note: [
+                    "id",
+                    "title",
+                    "ownerEmail",
+                    "updatedAt",
+                    "directContext",
+                    "entries",
+                ],
+            },
+        });
+        const projectedStep =
+            projected.actionTypes[0]!.logic[0]!;
+        expect(projectedStep.kind).toBe("createObject");
+        if (projectedStep.kind !== "createObject") {
+            return;
+        }
+
+        expect(projectedStep.value.values).toContainEqual(
+            {
+                property: ["entries"],
+                value: mapping,
+            }
+        );
+    });
+
     it("projects action defaults through object and property authorization", () => {
         const projected = projectRemoteOntologyIR({
             ir: {

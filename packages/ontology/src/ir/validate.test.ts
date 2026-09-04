@@ -669,6 +669,153 @@ describe("Ontology Validation", () => {
                 "Action targets must point directly to an object reference parameter."
             );
         });
+
+        it("validates map expressions with scoped element references", () => {
+            const entryType = o.struct({
+                fields: [
+                    {
+                        name: "code",
+                        displayName: "Code",
+                        type: o.string({}),
+                    },
+                ],
+            });
+            const ontology: OntologyIR = {
+                ...emptyOntology,
+                objectTypes: [
+                    {
+                        name: "Record",
+                        displayName: "Record",
+                        pluralDisplayName: "Records",
+                        primaryKey: "id",
+                        properties: [
+                            {
+                                name: "id",
+                                displayName: "ID",
+                                type: o.string({}),
+                            },
+                            {
+                                name: "entries",
+                                displayName: "Entries",
+                                type: o.list({
+                                    elementType: o.struct({
+                                        fields: [
+                                            {
+                                                name: "renamedCode",
+                                                displayName: "Renamed code",
+                                                type: o.string({}),
+                                            },
+                                        ],
+                                    }),
+                                }),
+                            },
+                        ],
+                    },
+                ],
+                actionTypes: [
+                    {
+                        name: "createRecord",
+                        displayName: "Create record",
+                        parameters: [
+                            {
+                                name: "entries",
+                                displayName: "Entries",
+                                type: o.list({
+                                    elementType: entryType,
+                                }),
+                            },
+                        ],
+                        logic: [
+                            o.ActionLogicStep.createObject({
+                                objectType: "Record",
+                                values: [
+                                    {
+                                        property: ["entries"],
+                                        value: o.Expression.map({
+                                            source: o.Expression.valueReference({
+                                                path: ["entries"],
+                                            }),
+                                            binding: "entry",
+                                            body: o.Expression.struct({
+                                                fields: [
+                                                    {
+                                                        name: "renamedCode",
+                                                        value: o.Expression.localReference({
+                                                            binding: "entry",
+                                                            path: ["code"],
+                                                        }),
+                                                    },
+                                                ],
+                                            }),
+                                        }),
+                                    },
+                                ],
+                            }),
+                        ],
+                    },
+                ],
+            };
+
+            expectOk(validate(ontology));
+        });
+
+        it("rejects invalid map sources and local references", () => {
+            const ontology: OntologyIR = {
+                ...emptyOntology,
+                objectTypes: [
+                    {
+                        name: "Record",
+                        displayName: "Record",
+                        pluralDisplayName: "Records",
+                        primaryKey: "id",
+                        properties: [
+                            {
+                                name: "id",
+                                displayName: "ID",
+                                type: o.string({}),
+                            },
+                        ],
+                    },
+                ],
+                actionTypes: [
+                    {
+                        name: "createRecord",
+                        displayName: "Create record",
+                        parameters: [
+                            {
+                                name: "title",
+                                displayName: "Title",
+                                type: o.string({}),
+                            },
+                        ],
+                        logic: [
+                            o.ActionLogicStep.createObject({
+                                objectType: "Record",
+                                values: [
+                                    {
+                                        property: ["id"],
+                                        value: o.Expression.map({
+                                            source: o.Expression.valueReference({
+                                                path: ["title"],
+                                            }),
+                                            binding: "entry",
+                                            body: o.Expression.localReference({
+                                                binding: "missing",
+                                                path: [],
+                                            }),
+                                        }),
+                                    },
+                                ],
+                            }),
+                        ],
+                    },
+                ],
+            };
+
+            const errors = getErrors(validate(ontology));
+            expect(errors).toContain("Map expression source must resolve to a list.");
+            expect(errors).toContain('Unknown expression binding: "missing".');
+        });
     });
 
     describe("Literal Expression", () => {

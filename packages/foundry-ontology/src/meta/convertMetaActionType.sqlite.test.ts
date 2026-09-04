@@ -1,15 +1,9 @@
 import { createRequire } from "node:module";
-import {
-    createLiveOntology,
-    type OntologyIR,
-} from "@party-stack/ontology";
+import { createLiveOntology, type OntologyIR } from "@party-stack/ontology";
 import { createSQLiteOntologyBackendAdapter } from "@party-stack/sqlite-ontology";
 import { describe, expect, it } from "vitest";
 import { convertFoundryMetaActionType } from "./convertMetaActionType.js";
-import type {
-    ActionParameterV2,
-    ActionTypeFullMetadata,
-} from "@osdk/foundry.ontologies";
+import type { ActionParameterV2, ActionTypeFullMetadata } from "@osdk/foundry.ontologies";
 
 interface TestDatabase {
     close: () => void;
@@ -140,6 +134,29 @@ describe("converted Foundry list-of-struct actions with SQLite", () => {
                 }
             )
         );
+        const mapAction = convertFoundryMetaActionType(
+            metadata(
+                "map-record-entries",
+                {
+                    record: recordParameter,
+                    entries: entriesParameter(),
+                },
+                {
+                    type: "modifyObject",
+                    objectToModify: "record",
+                    propertyArguments: {},
+                    structPropertyArguments: {
+                        summaries: {
+                            identifier: {
+                                type: "structListParameterFieldValue",
+                                parameterId: "entries",
+                                structParameterFieldApiName: "code",
+                            },
+                        },
+                    },
+                }
+            )
+        );
         const ir: OntologyIR = {
             types: [],
             objectTypes: [
@@ -157,15 +174,43 @@ describe("converted Foundry list-of-struct actions with SQLite", () => {
                         {
                             name: "entries",
                             displayName: "Entries",
-                            type: createAction.parameters.find(
-                                (parameter) => parameter.name === "entries"
-                            )!.type,
+                            type: createAction.parameters.find((parameter) => parameter.name === "entries")!
+                                .type,
+                        },
+                        {
+                            name: "summaries",
+                            displayName: "Summaries",
+                            type: {
+                                kind: "optional",
+                                value: {
+                                    type: {
+                                        kind: "list",
+                                        value: {
+                                            elementType: {
+                                                kind: "struct",
+                                                value: {
+                                                    fields: [
+                                                        {
+                                                            name: "identifier",
+                                                            displayName: "Identifier",
+                                                            type: {
+                                                                kind: "string",
+                                                                value: {},
+                                                            },
+                                                        },
+                                                    ],
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
                         },
                     ],
                 },
             ],
             linkTypes: [],
-            actionTypes: [createAction, updateAction],
+            actionTypes: [createAction, updateAction, mapAction],
             queryFunctionTypes: [],
         };
         const database = new Database(":memory:");
@@ -194,21 +239,21 @@ describe("converted Foundry list-of-struct actions with SQLite", () => {
             });
             const readPersisted = (id: string) => {
                 const row = database
-                    .prepare(
-                        'SELECT data FROM "party_stack_list_x2d_struct_Record" WHERE id = ?'
-                    )
+                    .prepare('SELECT data FROM "party_stack_list_x2d_struct_Record" WHERE id = ?')
                     .get(id) as { data: string };
                 return JSON.parse(row.data) as Record<string, unknown>;
             };
-            expect(readPersisted("initially-absent")).not.toHaveProperty(
-                "entries"
-            );
+            expect(readPersisted("initially-absent")).not.toHaveProperty("entries");
 
             const updateEntries = [
                 { code: "gamma", enabled: false },
                 { code: "delta", enabled: true },
             ];
             await ontology.actions.updateRecord!({
+                record: "initially-absent",
+                entries: updateEntries,
+            });
+            await ontology.actions.mapRecordEntries!({
                 record: "initially-absent",
                 entries: updateEntries,
             });
@@ -220,6 +265,7 @@ describe("converted Foundry list-of-struct actions with SQLite", () => {
             expect(readPersisted("initially-absent")).toMatchObject({
                 id: "initially-absent",
                 entries: updateEntries,
+                summaries: [{ identifier: "gamma" }, { identifier: "delta" }],
             });
         } finally {
             await ontology.cleanup();

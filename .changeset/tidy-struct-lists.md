@@ -1,6 +1,7 @@
 ---
-"@party-stack/foundry-ontology": patch
-"@party-stack/ontology": patch
+"@party-stack/foundry-ontology": minor
+"@party-stack/ontology": minor
+"@party-stack/remote-ontology": patch
 ---
 
-Convert direct Foundry list-of-struct action assignments as whole-list transfers, reject unsupported per-element mappings, and safely apply top-level structured property changes.
+Convert Foundry list-of-struct action assignments with backend-neutral map expressions and safely apply top-level structured property changes.

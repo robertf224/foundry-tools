@@ -114,6 +114,17 @@ export const Expression = {
     contextReference: <const Value extends Extract<t.Expression, { kind: "contextReference" }>["value"]>(
         value: Value
     ) => ({ kind: "contextReference" as const, value }),
+    localReference: <const Value extends Extract<t.Expression, { kind: "localReference" }>["value"]>(
+        value: Value
+    ) => ({ kind: "localReference" as const, value }),
+    struct: <const Value extends Extract<t.Expression, { kind: "struct" }>["value"]>(value: Value) => ({
+        kind: "struct" as const,
+        value,
+    }),
+    map: <const Value extends Extract<t.Expression, { kind: "map" }>["value"]>(value: Value) => ({
+        kind: "map" as const,
+        value,
+    }),
     functionCall: <const Value extends Extract<t.Expression, { kind: "functionCall" }>["value"]>(
         value: Value
     ) => ({ kind: "functionCall" as const, value }),
