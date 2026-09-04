@@ -237,6 +237,9 @@ describe("converted Foundry list-of-struct actions with SQLite", () => {
             await ontology.actions.createRecord!({
                 id: "initially-absent",
             });
+            await ontology.actions.createRecord!({
+                id: "mapped-list",
+            });
             const readPersisted = (id: string) => {
                 const row = database
                     .prepare('SELECT data FROM "party_stack_list_x2d_struct_Record" WHERE id = ?')
@@ -253,8 +256,12 @@ describe("converted Foundry list-of-struct actions with SQLite", () => {
                 record: "initially-absent",
                 entries: updateEntries,
             });
+            expect(readPersisted("initially-absent")).toMatchObject({
+                id: "initially-absent",
+                entries: updateEntries,
+            });
             await ontology.actions.mapRecordEntries!({
-                record: "initially-absent",
+                record: "mapped-list",
                 entries: updateEntries,
             });
 
@@ -262,9 +269,8 @@ describe("converted Foundry list-of-struct actions with SQLite", () => {
                 id: "with-list",
                 entries: createEntries,
             });
-            expect(readPersisted("initially-absent")).toMatchObject({
-                id: "initially-absent",
-                entries: updateEntries,
+            expect(readPersisted("mapped-list")).toMatchObject({
+                id: "mapped-list",
                 summaries: [{ identifier: "gamma" }, { identifier: "delta" }],
             });
         } finally {

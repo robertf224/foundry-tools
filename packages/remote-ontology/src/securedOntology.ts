@@ -122,9 +122,10 @@ function evaluateExpression<Context>(opts: {
                 ])
             );
         case "map": {
+            const { source: sourceExpression, binding, body } = opts.expression.value;
             const source = evaluateExpression({
                 ...opts,
-                expression: opts.expression.value.source,
+                expression: sourceExpression,
             });
             if (source === undefined) return undefined;
             if (!Array.isArray(source)) {
@@ -132,10 +133,10 @@ function evaluateExpression<Context>(opts: {
             }
             return source.map((item) => {
                 const locals = new Map(opts.locals);
-                locals.set(opts.expression.value.binding, item);
+                locals.set(binding, item);
                 return evaluateExpression({
                     ...opts,
-                    expression: opts.expression.value.body,
+                    expression: body,
                     locals,
                 });
             });

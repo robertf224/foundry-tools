@@ -532,6 +532,44 @@ describe("convertFoundryMetaActionType struct assignments", () => {
         );
     });
 
+    it("rejects mappings that mix list and non-list struct fields", () => {
+        const metadata = actionType({
+            entries: structListParameter(),
+            details: {
+                displayName: "Details",
+                dataType: {
+                    type: "struct",
+                    fields: [
+                        {
+                            name: "enabled",
+                            fieldType: { type: "boolean" },
+                            required: true,
+                        },
+                    ],
+                },
+                required: true,
+                typeClasses: [],
+            },
+        });
+        metadata.fullLogicRules = [
+            {
+                type: "createObject",
+                objectTypeApiName: "Record",
+                propertyArguments: {},
+                structPropertyArguments: {
+                    entries: {
+                        code: structListField("entries", "code"),
+                        enabled: structField("details", "enabled"),
+                    },
+                },
+            } as never,
+        ];
+
+        expect(() => convertFoundryMetaActionType(metadata)).toThrow(
+            'Unsupported Foundry list-of-struct assignment for property "entries": list fields are mixed with non-list struct field arguments'
+        );
+    });
+
     it("produces action IR that passes ontology validation", () => {
         const metadata = actionType({
             entries: structListParameter(),
