@@ -548,6 +548,7 @@ function convertLogicRuleArgument(
 
 function convertAssignments(
     rule: Extract<ActionLogicRule, { type: "createObject" | "modifyObject" }>,
+    parameters: ActionTypeFullMetadata["actionType"]["parameters"],
     syntheticParameters: {
         uniqueIdentifierParametersByLinkId: Map<string, string>;
         nowParameterName?: string;
@@ -559,16 +560,122 @@ function convertAssignments(
             value: convertLogicRuleArgument(argument, syntheticParameters),
         })),
         ...Object.entries(rule.structPropertyArguments).flatMap(([property, fields]) =>
-            Object.entries(fields).map(([field, argument]) => ({
-                property: [property, field],
-                value: convertLogicRuleArgument(argument, syntheticParameters),
-            }))
+            convertStructPropertyAssignments(
+                property,
+                fields,
+                parameters,
+                syntheticParameters
+            )
         ),
+    ];
+}
+
+function unsupportedListStructAssignment(
+    property: string,
+    reason: string
+): never {
+    throw new Error(
+        `Unsupported Foundry list-of-struct assignment for property "${property}": ${reason}. ` +
+            "Party Stack only supports direct whole-list transfers where every target field maps " +
+            "to the same-named field of one list-of-struct parameter."
+    );
+}
+
+function convertStructPropertyAssignments(
+    property: string,
+    fields: Record<string, StructFieldArgument>,
+    parameters: ActionTypeFullMetadata["actionType"]["parameters"],
+    syntheticParameters: {
+        uniqueIdentifierParametersByLinkId: Map<string, string>;
+        nowParameterName?: string;
+    }
+): PropertyAssignment[] {
+    const entries = Object.entries(fields);
+    const listEntries = entries.filter(
+        (
+            entry
+        ): entry is [
+            string,
+            Extract<
+                StructFieldArgument,
+                { type: "structListParameterFieldValue" }
+            >,
+        ] => entry[1].type === "structListParameterFieldValue"
+    );
+
+    if (listEntries.length === 0) {
+        return entries.map(([field, argument]) => ({
+            property: [property, field],
+            value: convertLogicRuleArgument(
+                argument,
+                syntheticParameters
+            ),
+        }));
+    }
+
+    if (listEntries.length !== entries.length) {
+        return unsupportedListStructAssignment(
+            property,
+            "list fields are mixed with non-list struct field arguments"
+        );
+    }
+
+    const parameterIds = new Set(
+        listEntries.map(([, argument]) => argument.parameterId)
+    );
+    if (parameterIds.size !== 1) {
+        return unsupportedListStructAssignment(
+            property,
+            "fields are mapped from multiple list parameters"
+        );
+    }
+
+    const parameterId = listEntries[0]![1].parameterId;
+    const parameter = parameters[parameterId];
+    if (
+        parameter?.dataType.type !== "array" ||
+        parameter.dataType.subType.type !== "struct"
+    ) {
+        return unsupportedListStructAssignment(
+            property,
+            `source parameter "${parameterId}" is not a list of structs`
+        );
+    }
+
+    for (const [field, argument] of listEntries) {
+        if (field !== argument.structParameterFieldApiName) {
+            return unsupportedListStructAssignment(
+                property,
+                `target field "${field}" is mapped from source field "${argument.structParameterFieldApiName}"`
+            );
+        }
+    }
+
+    const parameterFields = parameter.dataType.subType.fields.map(
+        (field) => field.name
+    );
+    const mappedFields = new Set(listEntries.map(([field]) => field));
+    if (
+        mappedFields.size !== parameterFields.length ||
+        parameterFields.some((field) => !mappedFields.has(field))
+    ) {
+        return unsupportedListStructAssignment(
+            property,
+            `mapping does not include every field of source parameter "${parameterId}"`
+        );
+    }
+
+    return [
+        {
+            property: [property],
+            value: valueReference([parameterId]),
+        },
     ];
 }
 
 function convertLogicStep(
     rule: ActionLogicRule,
+    parameters: ActionTypeFullMetadata["actionType"]["parameters"],
     syntheticParameters: {
         uniqueIdentifierParametersByLinkId: Map<string, string>;
         nowParameterName?: string;
@@ -580,7 +687,11 @@ function convertLogicStep(
                 kind: "createObject",
                 value: {
                     objectType: rule.objectTypeApiName,
-                    values: convertAssignments(rule, syntheticParameters),
+                    values: convertAssignments(
+                        rule,
+                        parameters,
+                        syntheticParameters
+                    ),
                 },
             };
         case "modifyObject":
@@ -590,7 +701,11 @@ function convertLogicStep(
                     object: {
                         path: [rule.objectToModify],
                     },
-                    values: convertAssignments(rule, syntheticParameters),
+                    values: convertAssignments(
+                        rule,
+                        parameters,
+                        syntheticParameters
+                    ),
                 },
             };
         case "deleteObject":
@@ -613,7 +728,13 @@ export function convertFoundryMetaActionType(
 ): MetaActionType {
     const syntheticParameters = createSyntheticParameters(actionType);
     const fullLogicRules = actionType.fullLogicRules
-        .map((rule) => convertLogicStep(rule, syntheticParameters))
+        .map((rule) =>
+            convertLogicStep(
+                rule,
+                actionType.actionType.parameters,
+                syntheticParameters
+            )
+        )
         .filter((rule): rule is NonNullable<typeof rule> => rule !== null);
     const parameters = Object.entries(actionType.actionType.parameters).map(
         ([name, parameter]): ActionParameterDef => {

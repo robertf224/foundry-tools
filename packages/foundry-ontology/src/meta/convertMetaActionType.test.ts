@@ -1,5 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 import { describe, expect, it } from "vitest";
+import { validate, type OntologyIR } from "@party-stack/ontology";
 import { convertFoundryMetaActionType } from "./convertMetaActionType.js";
 import type { ActionParameterV2, ActionTypeFullMetadata } from "@osdk/foundry.ontologies";
 
@@ -15,6 +16,48 @@ function actionType(parameters: Record<string, ActionParameterV2>): ActionTypeFu
         },
         fullLogicRules: [],
     };
+}
+
+function structListParameter(): ActionParameterV2 {
+    return {
+        displayName: "Entries",
+        dataType: {
+            type: "array",
+            subType: {
+                type: "struct",
+                fields: [
+                    {
+                        name: "code",
+                        fieldType: { type: "string" },
+                        required: true,
+                    },
+                    {
+                        name: "enabled",
+                        fieldType: { type: "boolean" },
+                        required: true,
+                    },
+                ],
+            },
+        },
+        required: false,
+        typeClasses: [],
+    };
+}
+
+function structListField(parameterId: string, field: string): never {
+    return {
+        type: "structListParameterFieldValue",
+        parameterId,
+        structParameterFieldApiName: field,
+    } as never;
+}
+
+function structField(parameterId: string, field: string): never {
+    return {
+        type: "structParameterFieldValue",
+        parameterId,
+        structParameterFieldApiName: field,
+    } as never;
 }
 
 function omsActionMetadata(
@@ -267,6 +310,236 @@ describe("convertFoundryMetaActionType parameter validation", () => {
                 },
             },
         ]);
+    });
+});
+
+describe("convertFoundryMetaActionType struct assignments", () => {
+    it.each([
+        {
+            name: "create-object",
+            rule: {
+                type: "createObject",
+                objectTypeApiName: "Record",
+                propertyArguments: {},
+                structPropertyArguments: {
+                    entries: {
+                        code: structListField("entries", "code"),
+                        enabled: structListField("entries", "enabled"),
+                    },
+                },
+            },
+            expectedKind: "createObject",
+        },
+        {
+            name: "update-object",
+            rule: {
+                type: "modifyObject",
+                objectToModify: "record",
+                propertyArguments: {},
+                structPropertyArguments: {
+                    entries: {
+                        code: structListField("entries", "code"),
+                        enabled: structListField("entries", "enabled"),
+                    },
+                },
+            },
+            expectedKind: "updateObject",
+        },
+    ])("converts a complete $name list mapping to one whole-list assignment", ({
+        rule,
+        expectedKind,
+    }) => {
+        const metadata = actionType({
+            entries: structListParameter(),
+            record: {
+                displayName: "Record",
+                dataType: {
+                    type: "object",
+                    objectTypeApiName: "Record",
+                    objectApiName: "record",
+                },
+                required: true,
+                typeClasses: [],
+            },
+        });
+        metadata.fullLogicRules = [rule as never];
+
+        expect(convertFoundryMetaActionType(metadata).logic).toMatchObject([
+            {
+                kind: expectedKind,
+                value: {
+                    values: [
+                        {
+                            property: ["entries"],
+                            value: {
+                                kind: "valueReference",
+                                value: { path: ["entries"] },
+                            },
+                        },
+                    ],
+                },
+            },
+        ]);
+    });
+
+    it("preserves nested assignments for an ordinary struct", () => {
+        const metadata = actionType({
+            details: {
+                displayName: "Details",
+                dataType: {
+                    type: "struct",
+                    fields: [
+                        {
+                            name: "code",
+                            fieldType: { type: "string" },
+                            required: true,
+                        },
+                    ],
+                },
+                required: true,
+                typeClasses: [],
+            },
+        });
+        metadata.fullLogicRules = [
+            {
+                type: "createObject",
+                objectTypeApiName: "Record",
+                propertyArguments: {},
+                structPropertyArguments: {
+                    details: {
+                        code: structField("details", "code"),
+                    },
+                },
+            } as never,
+        ];
+
+        expect(convertFoundryMetaActionType(metadata).logic).toMatchObject([
+            {
+                value: {
+                    values: [
+                        {
+                            property: ["details", "code"],
+                            value: {
+                                kind: "valueReference",
+                                value: { path: ["details", "code"] },
+                            },
+                        },
+                    ],
+                },
+            },
+        ]);
+    });
+
+    it.each([
+        {
+            name: "partial",
+            fields: {
+                code: structListField("entries", "code"),
+            },
+            message: "mapping does not include every field",
+        },
+        {
+            name: "renamed",
+            fields: {
+                renamedCode: structListField("entries", "code"),
+                enabled: structListField("entries", "enabled"),
+            },
+            message: 'target field "renamedCode" is mapped from source field "code"',
+        },
+        {
+            name: "per-element mapping across parameters",
+            fields: {
+                code: structListField("entries", "code"),
+                enabled: structListField("otherEntries", "enabled"),
+            },
+            message: "fields are mapped from multiple list parameters",
+        },
+    ])("rejects unsupported $name semantics", ({ fields, message }) => {
+        const metadata = actionType({
+            entries: structListParameter(),
+            otherEntries: structListParameter(),
+        });
+        metadata.fullLogicRules = [
+            {
+                type: "createObject",
+                objectTypeApiName: "Record",
+                propertyArguments: {},
+                structPropertyArguments: { entries: fields },
+            } as never,
+        ];
+
+        expect(() => convertFoundryMetaActionType(metadata)).toThrow(
+            `Unsupported Foundry list-of-struct assignment for property "entries": ${message}`
+        );
+    });
+
+    it("produces action IR that passes ontology validation", () => {
+        const metadata = actionType({
+            entries: structListParameter(),
+            record: {
+                displayName: "Record",
+                dataType: {
+                    type: "object",
+                    objectTypeApiName: "Record",
+                    objectApiName: "record",
+                },
+                required: true,
+                typeClasses: [],
+            },
+        });
+        metadata.fullLogicRules = [
+            {
+                type: "createObject",
+                objectTypeApiName: "Record",
+                propertyArguments: {},
+                structPropertyArguments: {
+                    entries: {
+                        code: structListField("entries", "code"),
+                        enabled: structListField("entries", "enabled"),
+                    },
+                },
+            },
+            {
+                type: "modifyObject",
+                objectToModify: "record",
+                propertyArguments: {},
+                structPropertyArguments: {
+                    entries: {
+                        code: structListField("entries", "code"),
+                        enabled: structListField("entries", "enabled"),
+                    },
+                },
+            },
+        ] as never;
+        const converted = convertFoundryMetaActionType(metadata);
+        const ontology: OntologyIR = {
+            types: [],
+            objectTypes: [
+                {
+                    name: "Record",
+                    displayName: "Record",
+                    pluralDisplayName: "Records",
+                    primaryKey: "id",
+                    properties: [
+                        {
+                            name: "id",
+                            displayName: "ID",
+                            type: { kind: "string", value: {} },
+                        },
+                        {
+                            name: "entries",
+                            displayName: "Entries",
+                            type: converted.parameters[0]!.type,
+                        },
+                    ],
+                },
+            ],
+            linkTypes: [],
+            actionTypes: [converted],
+            queryFunctionTypes: [],
+        };
+
+        expect(validate(ontology)).toEqual({ kind: "ok" });
     });
 });
 

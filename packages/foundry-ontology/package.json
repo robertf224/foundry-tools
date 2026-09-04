@@ -52,10 +52,12 @@
     },
     "devDependencies": {
         "@bobbyfidz/react-build-config": "^0.1.1",
+        "@party-stack/sqlite-ontology": "workspace:^",
         "@tanstack/db": "^0.8.6",
         "@tanstack/query-db-collection": "^1.2.11",
         "@types/node": "^24.10.1",
         "@types/react": "^19.2.6",
+        "better-sqlite3": "^12.9.0",
         "eslint": "^9.25.0",
         "react": "^19.2.0",
         "ts-node": "^10.9.2",
