@@ -121,4 +121,44 @@ describe("createMutatorTx", () => {
         transaction.rollback();
         await tasks.cleanup();
     });
+
+    it("sets a previously absent structured property from a property change", async () => {
+        const tasks = createCollection(
+            localOnlyCollectionOptions<
+                OntologyObject,
+                string | number
+            >({
+                id: "structured-tasks",
+                getKey: (task) => task.id as string,
+                initialData: [{ id: "task-1" }],
+            })
+        );
+        await tasks.preload();
+        const transaction = createTransaction({
+            autoCommit: false,
+            mutationFn: () => Promise.resolve(),
+        });
+        void transaction.isPersisted.promise.catch(
+            () => undefined
+        );
+        const tx = createMutatorTx({
+            transaction,
+            objects: { Task: tasks },
+        });
+        const entries = [
+            { code: "alpha", enabled: true },
+            { code: "beta", enabled: false },
+        ];
+
+        await tx.mutate.Task!.update("task-1", [
+            {
+                path: ["entries"],
+                value: entries,
+            },
+        ]);
+
+        expect(tasks.get("task-1")?.entries).toEqual(entries);
+        transaction.rollback();
+        await tasks.cleanup();
+    });
 });

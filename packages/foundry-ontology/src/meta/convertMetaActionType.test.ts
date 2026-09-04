@@ -1,6 +1,6 @@
+import { validate, type OntologyIR } from "@party-stack/ontology";
 import { Temporal } from "temporal-polyfill";
 import { describe, expect, it } from "vitest";
-import { validate, type OntologyIR } from "@party-stack/ontology";
 import { convertFoundryMetaActionType } from "./convertMetaActionType.js";
 import type { ActionParameterV2, ActionTypeFullMetadata } from "@osdk/foundry.ontologies";
 

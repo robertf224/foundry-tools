@@ -131,7 +131,12 @@ function applyChanges(
 ): void {
     if (Array.isArray(changes)) {
         for (const change of changes) {
-            set(object, change.path, change.value);
+            const [property, ...nestedPath] = change.path;
+            if (property !== undefined && nestedPath.length === 0) {
+                object[property] = change.value;
+            } else {
+                set(object, change.path, change.value);
+            }
         }
     } else {
         Object.assign(object, changes);

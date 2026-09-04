@@ -5,16 +5,17 @@ import {
 } from "@party-stack/ontology";
 import { createSQLiteOntologyBackendAdapter } from "@party-stack/sqlite-ontology";
 import { describe, expect, it } from "vitest";
+import { convertFoundryMetaActionType } from "./convertMetaActionType.js";
 import type {
     ActionParameterV2,
     ActionTypeFullMetadata,
 } from "@osdk/foundry.ontologies";
-import { convertFoundryMetaActionType } from "./convertMetaActionType.js";
 
 interface TestDatabase {
     close: () => void;
     exec: (sql: string) => void;
     prepare: (sql: string) => {
+        all: (...params: unknown[]) => unknown[];
         get: (...params: unknown[]) => unknown;
         run: (...params: unknown[]) => unknown;
     };
@@ -151,9 +152,7 @@ describe("converted Foundry list-of-struct actions with SQLite", () => {
                         {
                             name: "id",
                             displayName: "ID",
-                            type: idParameter.dataType.type === "string"
-                                ? { kind: "string", value: {} }
-                                : { kind: "unknown", value: {} },
+                            type: { kind: "string", value: {} },
                         },
                         {
                             name: "entries",
@@ -193,9 +192,17 @@ describe("converted Foundry list-of-struct actions with SQLite", () => {
             await ontology.actions.createRecord!({
                 id: "initially-absent",
             });
-            expect(
-                ontology.objects.Record!.get("initially-absent")
-            ).not.toHaveProperty("entries");
+            const readPersisted = (id: string) => {
+                const row = database
+                    .prepare(
+                        'SELECT data FROM "party_stack_list_x2d_struct_Record" WHERE id = ?'
+                    )
+                    .get(id) as { data: string };
+                return JSON.parse(row.data) as Record<string, unknown>;
+            };
+            expect(readPersisted("initially-absent")).not.toHaveProperty(
+                "entries"
+            );
 
             const updateEntries = [
                 { code: "gamma", enabled: false },
@@ -206,19 +213,11 @@ describe("converted Foundry list-of-struct actions with SQLite", () => {
                 entries: updateEntries,
             });
 
-            expect(
-                ontology.objects.Record!.get("with-list")?.entries
-            ).toEqual(createEntries);
-            expect(
-                ontology.objects.Record!.get("initially-absent")?.entries
-            ).toEqual(updateEntries);
-
-            const row = database
-                .prepare(
-                    'SELECT data FROM "party_stack_list_x2d_struct_Record" WHERE id = ?'
-                )
-                .get("initially-absent") as { data: string };
-            expect(JSON.parse(row.data)).toMatchObject({
+            expect(readPersisted("with-list")).toMatchObject({
+                id: "with-list",
+                entries: createEntries,
+            });
+            expect(readPersisted("initially-absent")).toMatchObject({
                 id: "initially-absent",
                 entries: updateEntries,
             });
