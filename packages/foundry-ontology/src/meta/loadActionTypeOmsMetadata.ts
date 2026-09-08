@@ -1,5 +1,6 @@
 import { bulkLoadOntologyEntities } from "@osdk/client.unstable";
 import type { OntologyClient } from "@party-stack/foundry-client";
+import * as AsyncIterable from "../utils/AsyncIterable.js";
 
 const ONTOLOGY_METADATA_API_PATH = "/ontology-metadata/api";
 const OMS_BULK_LOAD_LIMIT = 100;
@@ -60,36 +61,47 @@ export async function loadActionTypeOmsMetadata(
         fetchFn: client.fetch,
     };
 
-    for (let index = 0; index < actionTypeRids.length; index += OMS_BULK_LOAD_LIMIT) {
-        const rids = actionTypeRids.slice(index, index + OMS_BULK_LOAD_LIMIT);
-        try {
-            const response = await bulkLoadOntologyEntities(
-                context,
-                undefined,
-                {
-                    actionTypes: rids.map((rid) => ({ rid })),
-                    datasourceTypes: [],
-                    linkTypes: [],
-                    objectTypes: [],
-                    sharedPropertyTypes: [],
-                    interfaceTypes: [],
-                    typeGroups: [],
-                }
-            );
-            response.actionTypes.forEach((result, resultIndex) => {
-                const rid = rids[resultIndex];
-                if (rid && result?.actionType) {
-                    actionTypes.set(rid, result);
-                }
-            });
-        } catch (error) {
-            // OMS is an unstable/private compatibility API. Public action
-            // metadata must remain usable when this endpoint is unavailable.
-            console.warn(
-                "Failed to load Foundry OMS action metadata; continuing with public metadata.",
-                error
-            );
-        }
+    for await (const [rid, result] of AsyncIterable.fromBatches(
+        actionTypeRids,
+        async (rids) => {
+            try {
+                const response =
+                    await bulkLoadOntologyEntities(
+                        context,
+                        undefined,
+                        {
+                            actionTypes: rids.map((rid) => ({
+                                rid,
+                            })),
+                            datasourceTypes: [],
+                            linkTypes: [],
+                            objectTypes: [],
+                            sharedPropertyTypes: [],
+                            interfaceTypes: [],
+                            typeGroups: [],
+                        }
+                    );
+                return response.actionTypes.flatMap(
+                    (result, resultIndex) => {
+                        const rid = rids[resultIndex];
+                        return rid && result?.actionType
+                            ? [[rid, result] as const]
+                            : [];
+                    }
+                );
+            } catch (error) {
+                // OMS is an unstable/private compatibility API. Public action
+                // metadata must remain usable when this endpoint is unavailable.
+                console.warn(
+                    "Failed to load Foundry OMS action metadata; continuing with public metadata.",
+                    error
+                );
+                return [];
+            }
+        },
+        OMS_BULK_LOAD_LIMIT
+    )) {
+        actionTypes.set(rid, result);
     }
 
     const dependencies = new Map<
@@ -133,62 +145,73 @@ export async function loadActionTypeOmsMetadata(
 
     const objectTypes = new Map<string, OmsObjectType>();
     const allDependencies = [...dependencies.values()];
-    for (
-        let index = 0;
-        index < allDependencies.length;
-        index += OMS_BULK_LOAD_LIMIT
-    ) {
-        const batch = allDependencies.slice(
-            index,
-            index + OMS_BULK_LOAD_LIMIT
-        );
-        try {
-            const response = await bulkLoadOntologyEntities(
-                context,
-                undefined,
-                {
-                    actionTypes: [],
-                    datasourceTypes: [],
-                    linkTypes: [],
-                    objectTypes: batch.map(
-                        ({ objectTypeId, ontologyVersion }) => ({
-                            identifier: {
-                                type: "objectTypeId",
-                                objectTypeId,
-                            },
-                            versionReference: {
-                                type: "ontologyVersion",
-                                ontologyVersion,
-                            },
-                        })
-                    ),
-                    loadRedacted: true,
-                    includeObjectTypesWithoutSearchableDatasources:
-                        true,
-                    sharedPropertyTypes: [],
-                    interfaceTypes: [],
-                    typeGroups: [],
-                }
-            );
-            response.objectTypes.forEach(
-                (result, resultIndex) => {
-                    const dependency = batch[resultIndex];
-                    if (dependency && result?.objectType) {
-                        objectTypes.set(
-                            objectTypeDependencyKey(
-                                dependency
+    for await (const [
+        dependency,
+        objectType,
+    ] of AsyncIterable.fromBatches(
+        allDependencies,
+        async (batch) => {
+            try {
+                const response =
+                    await bulkLoadOntologyEntities(
+                        context,
+                        undefined,
+                        {
+                            actionTypes: [],
+                            datasourceTypes: [],
+                            linkTypes: [],
+                            objectTypes: batch.map(
+                                ({
+                                    objectTypeId,
+                                    ontologyVersion,
+                                }) => ({
+                                    identifier: {
+                                        type: "objectTypeId",
+                                        objectTypeId,
+                                    },
+                                    versionReference: {
+                                        type: "ontologyVersion",
+                                        ontologyVersion,
+                                    },
+                                })
                             ),
-                            result.objectType
-                        );
+                            loadRedacted: true,
+                            includeObjectTypesWithoutSearchableDatasources:
+                                true,
+                            sharedPropertyTypes: [],
+                            interfaceTypes: [],
+                            typeGroups: [],
+                        }
+                    );
+                return response.objectTypes.flatMap(
+                    (result, resultIndex) => {
+                        const dependency =
+                            batch[resultIndex];
+                        return dependency &&
+                            result?.objectType
+                            ? [
+                                  [
+                                      dependency,
+                                      result.objectType,
+                                  ] as const,
+                              ]
+                            : [];
                     }
-                }
-            );
-        } catch (error) {
-            console.warn(
-                "Failed to load Foundry OMS object metadata; object-property action defaults will be omitted.",
-                error
-            );
-        }
+                );
+            } catch (error) {
+                console.warn(
+                    "Failed to load Foundry OMS object metadata; object-property action defaults will be omitted.",
+                    error
+                );
+                return [];
+            }
+        },
+        OMS_BULK_LOAD_LIMIT
+    )) {
+        objectTypes.set(
+            objectTypeDependencyKey(dependency),
+            objectType
+        );
     }
 
     return new Map(
