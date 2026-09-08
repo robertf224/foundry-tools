@@ -1,5 +1,16 @@
 # @party-stack/sqlite-ontology
 
+## 0.6.0
+
+### Minor Changes
+
+- 81d84bb: Rename expression inputs to `inputReference`, promote UUID and current-time expressions to direct variants, convert Foundry list-of-struct action assignments with backend-neutral map and struct expressions, and safely apply structured property changes to sparse objects.
+
+### Patch Changes
+
+- Updated dependencies [81d84bb]
+    - @party-stack/ontology@0.15.0
+
 ## 0.5.1
 
 ### Patch Changes

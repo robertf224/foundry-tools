@@ -1,5 +1,19 @@
 # @party-stack/remote-notes
 
+## 0.2.0
+
+### Minor Changes
+
+- 81d84bb: Rename expression inputs to `inputReference`, promote UUID and current-time expressions to direct variants, convert Foundry list-of-struct action assignments with backend-neutral map and struct expressions, and safely apply structured property changes to sparse objects.
+
+### Patch Changes
+
+- Updated dependencies [81d84bb]
+    - @party-stack/remote-ontology@0.7.0
+    - @party-stack/sqlite-ontology@0.6.0
+    - @party-stack/ontology@0.15.0
+    - @party-stack/ontology-devtools@0.4.7
+
 ## 0.1.6
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @party-stack/salesforce-task-manager
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [81d84bb]
+    - @party-stack/ontology@0.15.0
+    - @party-stack/salesforce-ontology@0.1.4
+
 ## 0.1.3
 
 ### Patch Changes
