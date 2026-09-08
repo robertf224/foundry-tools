@@ -97,26 +97,27 @@ export const AttachmentContentConstraint = {
     ) => ({ kind: "image" as const, value }),
 };
 
-export const FunctionCallExpression = {
-    uuid: <const Value extends Extract<t.FunctionCallExpression, { kind: "uuid" }>["value"]>(
-        value: Value
-    ) => ({ kind: "uuid" as const, value }),
-    now: <const Value extends Extract<t.FunctionCallExpression, { kind: "now" }>["value"]>(value: Value) => ({
-        kind: "now" as const,
-        value,
-    }),
-};
-
 export const Expression = {
-    valueReference: <const Value extends Extract<t.Expression, { kind: "valueReference" }>["value"]>(
+    inputReference: <const Value extends Extract<t.Expression, { kind: "inputReference" }>["value"]>(
         value: Value
-    ) => ({ kind: "valueReference" as const, value }),
+    ) => ({ kind: "inputReference" as const, value }),
     contextReference: <const Value extends Extract<t.Expression, { kind: "contextReference" }>["value"]>(
         value: Value
     ) => ({ kind: "contextReference" as const, value }),
     localReference: <const Value extends Extract<t.Expression, { kind: "localReference" }>["value"]>(
         value: Value
     ) => ({ kind: "localReference" as const, value }),
+    getAt: <const Value extends Extract<t.Expression, { kind: "getAt" }>["value"]>(value: Value) => ({
+        kind: "getAt" as const,
+        value,
+    }),
+    objectLookup: <const Value extends Extract<t.Expression, { kind: "objectLookup" }>["value"]>(
+        value: Value
+    ) => ({ kind: "objectLookup" as const, value }),
+    linkHop: <const Value extends Extract<t.Expression, { kind: "linkHop" }>["value"]>(value: Value) => ({
+        kind: "linkHop" as const,
+        value,
+    }),
     struct: <const Value extends Extract<t.Expression, { kind: "struct" }>["value"]>(value: Value) => ({
         kind: "struct" as const,
         value,
@@ -125,9 +126,14 @@ export const Expression = {
         kind: "map" as const,
         value,
     }),
-    functionCall: <const Value extends Extract<t.Expression, { kind: "functionCall" }>["value"]>(
-        value: Value
-    ) => ({ kind: "functionCall" as const, value }),
+    uuid: <const Value extends Extract<t.Expression, { kind: "uuid" }>["value"]>(value: Value) => ({
+        kind: "uuid" as const,
+        value,
+    }),
+    now: <const Value extends Extract<t.Expression, { kind: "now" }>["value"]>(value: Value) => ({
+        kind: "now" as const,
+        value,
+    }),
     literal: <const Value extends Extract<t.Expression, { kind: "literal" }>["value"]>(value: Value) => ({
         kind: "literal" as const,
         value,
@@ -178,7 +184,6 @@ export const o = {
     unknown,
     StringConstraint,
     AttachmentContentConstraint,
-    FunctionCallExpression,
     Expression,
     ActionLogicStep,
     LensOp,

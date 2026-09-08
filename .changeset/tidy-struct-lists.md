@@ -4,4 +4,4 @@
 "@party-stack/remote-ontology": patch
 ---
 
-Convert Foundry list-of-struct action assignments with backend-neutral map expressions and safely apply top-level structured property changes.
+Rename expression inputs to `inputReference`, promote UUID and current-time expressions to direct variants, convert Foundry list-of-struct action assignments with backend-neutral map and struct expressions, and safely apply structured property changes to sparse objects.

@@ -14,7 +14,7 @@ import {
     convertOmsActionParameterDefaults,
     convertOmsActionParameterStringConstraint,
     convertOmsActionParameterStringSuggestions,
-} from "./convertOmsActionPrefills.js";
+} from "./convertOmsActionParameterMetadata.js";
 import type { ActionTypeOmsMetadata } from "./loadActionTypeOmsMetadata.js";
 import type {
     ActionLogicRule,
@@ -189,6 +189,10 @@ function convertActionParameterType(
                 return integerType();
             case "double":
                 return doubleType();
+            case "decimal":
+                // Preserve the exact value until Party Stack has a decimal
+                // type with explicit precision and scale.
+                return stringType();
             case "date":
                 return dateType();
             case "timestamp":
@@ -233,6 +237,10 @@ function convertActionParameterType(
             case "objectSet":
             case "scenarioReference":
                 return stringType();
+            default: {
+                const unsupported: never = type;
+                return unsupported;
+            }
         }
     })();
 
@@ -378,8 +386,8 @@ function createSyntheticParameters(actionType: ActionTypeFullMetadata): {
             displayName: `Generated UUID ${index + 1}`,
             type: { kind: "string", value: {} },
             defaultValue: {
-                kind: "functionCall",
-                value: { kind: "uuid", value: {} },
+                kind: "uuid",
+                value: {},
             },
         })
     );
@@ -390,8 +398,8 @@ function createSyntheticParameters(actionType: ActionTypeFullMetadata): {
             displayName: "Current time",
             type: { kind: "timestamp", value: {} },
             defaultValue: {
-                kind: "functionCall",
-                value: { kind: "now", value: {} },
+                kind: "now",
+                value: {},
             },
         });
     }
@@ -407,10 +415,10 @@ export function getFoundryActionOverrideParameterMapping(actionType: ActionTypeD
     let nowParameterName: string | undefined;
 
     for (const parameter of actionType.parameters) {
-        if (parameter.defaultValue?.kind !== "functionCall") {
+        if (parameter.defaultValue?.kind !== "uuid" && parameter.defaultValue?.kind !== "now") {
             continue;
         }
-        switch (parameter.defaultValue.value.kind) {
+        switch (parameter.defaultValue.kind) {
             case "uuid": {
                 const linkId = getUniqueIdentifierLinkIdFromParameterName(parameter.name);
                 if (linkId) {
@@ -427,11 +435,36 @@ export function getFoundryActionOverrideParameterMapping(actionType: ActionTypeD
     return { uuidByParameterName, nowParameterName };
 }
 
-function valueReference(path: string[]): Expression {
+function inputReference(name: string): Expression {
     return {
-        kind: "valueReference",
-        value: { path },
+        kind: "inputReference",
+        value: { name },
     };
+}
+
+function getAtExpression(
+    source: Expression,
+    path: string[]
+): Expression {
+    return {
+        kind: "getAt",
+        value: { source, path },
+    };
+}
+
+function objectField(
+    parameterName: string,
+    path: string[]
+): Expression {
+    return getAtExpression(
+        {
+            kind: "objectLookup",
+            value: {
+                reference: inputReference(parameterName),
+            },
+        },
+        path
+    );
 }
 
 // TODO: This uses regex heuristics to infer the type of static literal values without
@@ -480,11 +513,15 @@ function convertLogicRuleArgument(
 ): Expression {
     switch (argument.type) {
         case "parameterId":
-            return valueReference([argument.parameterId]);
+            return inputReference(argument.parameterId);
         case "objectParameterPropertyValue":
-            return valueReference([argument.parameterId, argument.propertyTypeApiName]);
+            return objectField(argument.parameterId, [
+                argument.propertyTypeApiName,
+            ]);
         case "structParameterFieldValue":
-            return valueReference([argument.parameterId, argument.structParameterFieldApiName]);
+            return getAtExpression(inputReference(argument.parameterId), [
+                argument.structParameterFieldApiName,
+            ]);
         case "structListParameterFieldValue":
             throw new Error("Foundry list-of-struct field arguments must be converted as a list mapping.");
         case "uniqueIdentifier": {
@@ -492,18 +529,18 @@ function convertLogicRuleArgument(
                 ? syntheticParameters.uniqueIdentifierParametersByLinkId.get(argument.linkId)
                 : undefined;
             return parameterName
-                ? valueReference([parameterName])
+                ? inputReference(parameterName)
                 : {
-                      kind: "functionCall",
-                      value: { kind: "uuid", value: {} },
+                      kind: "uuid",
+                      value: {},
                   };
         }
         case "currentTime":
             return syntheticParameters.nowParameterName
-                ? valueReference([syntheticParameters.nowParameterName])
+                ? inputReference(syntheticParameters.nowParameterName)
                 : {
-                      kind: "functionCall",
-                      value: { kind: "now", value: {} },
+                      kind: "now",
+                      value: {},
                   };
         case "staticValue":
             return {
@@ -513,7 +550,7 @@ function convertLogicRuleArgument(
         case "currentUser":
             return {
                 kind: "contextReference",
-                value: { path: FOUNDRY_CURRENT_USER_CONTEXT_PATH },
+                value: { name: FOUNDRY_CURRENT_USER_CONTEXT_PATH[0]! },
             };
         default:
             throw new Error(`Unsupported Foundry action argument "${argument.type}".`);
@@ -600,7 +637,7 @@ function convertStructPropertyAssignments(
         return [
             {
                 property: [property],
-                value: valueReference([parameterId]),
+                value: inputReference(parameterId),
             },
         ];
     }
@@ -611,7 +648,7 @@ function convertStructPropertyAssignments(
             value: {
                 kind: "map",
                 value: {
-                    source: valueReference([parameterId]),
+                    source: inputReference(parameterId),
                     binding: FOUNDRY_LIST_ITEM_BINDING,
                     body: {
                         kind: "struct",
@@ -620,13 +657,15 @@ function convertStructPropertyAssignments(
                                 name: field,
                                 value:
                                     argument.type === "structListParameterFieldValue"
-                                        ? {
-                                              kind: "localReference",
-                                              value: {
-                                                  binding: FOUNDRY_LIST_ITEM_BINDING,
-                                                  path: [argument.structParameterFieldApiName],
+                                        ? getAtExpression(
+                                              {
+                                                  kind: "localReference",
+                                                  value: {
+                                                      name: FOUNDRY_LIST_ITEM_BINDING,
+                                                  },
                                               },
-                                          }
+                                              [argument.structParameterFieldApiName]
+                                          )
                                         : convertLogicRuleArgument(argument, syntheticParameters),
                             })),
                         },
@@ -659,7 +698,7 @@ function convertLogicStep(
                 kind: "updateObject",
                 value: {
                     object: {
-                        path: [rule.objectToModify],
+                        name: rule.objectToModify,
                     },
                     values: convertAssignments(rule, parameters, syntheticParameters),
                 },
@@ -669,7 +708,7 @@ function convertLogicStep(
                 kind: "deleteObject",
                 value: {
                     object: {
-                        path: [rule.objectToDelete],
+                        name: rule.objectToDelete,
                     },
                 },
             };
@@ -707,7 +746,11 @@ export function convertFoundryMetaActionType(
             };
         }
     );
-    const defaultsByParameter = convertOmsActionParameterDefaults(omsMetadata, parameters);
+    const defaultsByParameter =
+        convertOmsActionParameterDefaults(
+            omsMetadata,
+            parameters
+        );
 
     return {
         id: actionType.actionType.rid,

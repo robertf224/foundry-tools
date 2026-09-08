@@ -218,8 +218,7 @@ async function loadActionReferenceObjects(opts: {
     for (const step of actionType.logic) {
         if (step.kind !== "updateObject" && step.kind !== "deleteObject") continue;
 
-        const parameterName = step.value.object.path[0];
-        if (!parameterName) continue;
+        const parameterName = step.value.object.name;
 
         const parameter = actionType.parameters.find((candidate) => candidate.name === parameterName);
         if (!parameter) continue;

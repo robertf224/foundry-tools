@@ -68,7 +68,7 @@ const conformanceIR: OntologyIR = {
                     displayName: "Owner",
                     type: o.string({}),
                     defaultValue: o.Expression.contextReference({
-                        path: ["user"],
+                        name: "user",
                     }),
                 },
             ],
@@ -78,20 +78,20 @@ const conformanceIR: OntologyIR = {
                     values: [
                         {
                             property: ["id"],
-                            value: o.Expression.valueReference({
-                                path: ["id"],
+                            value: o.Expression.inputReference({
+                                name: "id",
                             }),
                         },
                         {
                             property: ["title"],
-                            value: o.Expression.valueReference({
-                                path: ["title"],
+                            value: o.Expression.inputReference({
+                                name: "title",
                             }),
                         },
                         {
                             property: ["owner"],
-                            value: o.Expression.valueReference({
-                                path: ["owner"],
+                            value: o.Expression.inputReference({
+                                name: "owner",
                             }),
                         },
                     ],
@@ -132,14 +132,14 @@ const conformanceIR: OntologyIR = {
                     values: [
                         {
                             property: ["id"],
-                            value: o.Expression.valueReference({
-                                path: ["id"],
+                            value: o.Expression.inputReference({
+                                name: "id",
                             }),
                         },
                         {
                             property: ["attachment"],
-                            value: o.Expression.valueReference({
-                                path: ["attachment"],
+                            value: o.Expression.inputReference({
+                                name: "attachment",
                             }),
                         },
                     ],

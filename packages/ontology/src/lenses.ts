@@ -1,5 +1,5 @@
 import { capitalCase } from "change-case";
-import { get, set, unset } from "lodash-es";
+import { getAtPath, setAtPath, unsetAtPath } from "./utils/paths.js";
 import type { FieldDef, Lens, ObjectTypeDef, PropertyDef, TypeDef } from "./ir/index.js";
 
 export interface ApplyObjectTypeLensOptions {
@@ -69,10 +69,7 @@ export function applyLensToObjectType(
             case "move": {
                 const field = removeField(target.properties, operation.value.from);
                 insertField(target.properties, operation.value.to, field);
-                if (
-                    operation.value.from.length === 1 &&
-                    operation.value.from[0] === target.primaryKey
-                ) {
+                if (operation.value.from.length === 1 && operation.value.from[0] === target.primaryKey) {
                     if (operation.value.to.length !== 1) {
                         throw new Error("An object primary key cannot be moved into a nested path.");
                     }
@@ -103,9 +100,7 @@ function cloneLensValue(value: unknown): unknown {
         return value.map(cloneLensValue);
     }
     if (value && typeof value === "object") {
-        const prototype = Object.getPrototypeOf(
-            value
-        ) as unknown;
+        const prototype = Object.getPrototypeOf(value) as unknown;
         if (prototype === Object.prototype || prototype === null) {
             return Object.fromEntries(
                 Object.entries(value).map(([key, entry]) => [key, cloneLensValue(entry)])
@@ -119,13 +114,13 @@ export function applyLensToObject<
     Source extends Record<string, unknown>,
     Target extends Record<string, unknown>,
 >(source: Source, lens: Lens): Target {
-    const target = cloneLensValue(source) as Record<string, unknown>;
+    let target = cloneLensValue(source) as Record<string, unknown>;
     for (const operation of lens.operations) {
         switch (operation.kind) {
             case "move": {
-                const value = get(target, operation.value.from) as unknown;
-                unset(target, operation.value.from);
-                set(target, operation.value.to, value);
+                const value = getAtPath(target, operation.value.from);
+                target = unsetAtPath(target, operation.value.from);
+                target = setAtPath(target, operation.value.to, value);
                 break;
             }
             case "select": {

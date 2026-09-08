@@ -256,6 +256,55 @@ describe("Ontology Validation", () => {
             expect(getErrors(result)).toContain('Target object type "NonExistent" does not exist.');
         });
 
+        it("should reject a foreign key that exists only on the target", () => {
+            const ontology: OntologyIR = {
+                ...emptyOntology,
+                objectTypes: [
+                    minimalObjectType({
+                        name: "Project",
+                    }),
+                    minimalObjectType({
+                        name: "Issue",
+                        properties: [
+                            {
+                                name: "employeeId",
+                                displayName: "Employee ID",
+                                type: o.string({}),
+                            },
+                            {
+                                name: "projectId",
+                                displayName: "Project ID",
+                                type: o.string({}),
+                            },
+                        ],
+                    }),
+                ],
+                linkTypes: [
+                    {
+                        id: "projectIssues",
+                        source: {
+                            objectType: "Project",
+                            name: "project",
+                            displayName: "Project",
+                        },
+                        target: {
+                            objectType: "Issue",
+                            name: "issues",
+                            displayName: "Issues",
+                        },
+                        foreignKey: "projectId",
+                        cardinality: "many",
+                    },
+                ],
+            };
+
+            const result = validate(ontology);
+            expectErr(result, 1);
+            expect(getErrors(result)).toContain(
+                'Foreign key "projectId" does not exist on source object type "Project" for link "projectIssues".'
+            );
+        });
+
         it("should validate links with valid object type references", () => {
             const ontology: OntologyIR = {
                 ...emptyOntology,
@@ -531,13 +580,13 @@ describe("Ontology Validation", () => {
                                 name: "__taskId",
                                 displayName: "Task ID",
                                 type: o.optional({ type: o.string({}) }),
-                                defaultValue: o.Expression.functionCall(o.FunctionCallExpression.uuid({})),
+                                defaultValue: o.Expression.uuid({}),
                             },
                             {
                                 name: "__now",
                                 displayName: "Now",
                                 type: o.optional({ type: o.timestamp({}) }),
-                                defaultValue: o.Expression.functionCall(o.FunctionCallExpression.now({})),
+                                defaultValue: o.Expression.now({}),
                             },
                         ],
                         logic: [
@@ -546,20 +595,20 @@ describe("Ontology Validation", () => {
                                 values: [
                                     {
                                         property: ["taskId"],
-                                        value: o.Expression.valueReference({
-                                            path: ["__taskId"],
+                                        value: o.Expression.inputReference({
+                                            name: "__taskId",
                                         }),
                                     },
                                     {
                                         property: ["title"],
-                                        value: o.Expression.valueReference({
-                                            path: ["title"],
+                                        value: o.Expression.inputReference({
+                                            name: "title",
                                         }),
                                     },
                                     {
                                         property: ["updatedAt"],
-                                        value: o.Expression.valueReference({
-                                            path: ["__now"],
+                                        value: o.Expression.inputReference({
+                                            name: "__now",
                                         }),
                                     },
                                 ],
@@ -590,8 +639,13 @@ describe("Ontology Validation", () => {
                                 name: "name",
                                 displayName: "Name",
                                 type: o.string({}),
-                                defaultValue: o.Expression.valueReference({
-                                    path: ["employee", "name"],
+                                defaultValue: o.Expression.getAt({
+                                    source: o.Expression.objectLookup({
+                                        reference: o.Expression.inputReference({
+                                            name: "employee",
+                                        }),
+                                    }),
+                                    path: ["name"],
                                 }),
                             },
                         ],
@@ -621,8 +675,13 @@ describe("Ontology Validation", () => {
                                 name: "count",
                                 displayName: "Count",
                                 type: o.integer({}),
-                                defaultValue: o.Expression.valueReference({
-                                    path: ["employee", "name"],
+                                defaultValue: o.Expression.getAt({
+                                    source: o.Expression.objectLookup({
+                                        reference: o.Expression.inputReference({
+                                            name: "employee",
+                                        }),
+                                    }),
+                                    path: ["name"],
                                 }),
                             },
                         ],
@@ -654,7 +713,7 @@ describe("Ontology Validation", () => {
                         logic: [
                             o.ActionLogicStep.updateObject({
                                 object: {
-                                    path: ["employee", "name"],
+                                    name: "missing",
                                 },
                                 values: [],
                             }),
@@ -666,7 +725,7 @@ describe("Ontology Validation", () => {
             const result = validate(ontology);
             expectErr(result, 1);
             expect(getErrors(result)).toContain(
-                "Action targets must point directly to an object reference parameter."
+                'Unknown action parameter: "missing".'
             );
         });
 
@@ -732,16 +791,18 @@ describe("Ontology Validation", () => {
                                     {
                                         property: ["entries"],
                                         value: o.Expression.map({
-                                            source: o.Expression.valueReference({
-                                                path: ["entries"],
+                                            source: o.Expression.inputReference({
+                                                name: "entries",
                                             }),
                                             binding: "entry",
                                             body: o.Expression.struct({
                                                 fields: [
                                                     {
                                                         name: "renamedCode",
-                                                        value: o.Expression.localReference({
-                                                            binding: "entry",
+                                                        value: o.Expression.getAt({
+                                                            source: o.Expression.localReference({
+                                                                name: "entry",
+                                                            }),
                                                             path: ["code"],
                                                         }),
                                                     },
@@ -795,13 +856,12 @@ describe("Ontology Validation", () => {
                                     {
                                         property: ["id"],
                                         value: o.Expression.map({
-                                            source: o.Expression.valueReference({
-                                                path: ["title"],
+                                            source: o.Expression.inputReference({
+                                                name: "title",
                                             }),
                                             binding: "entry",
                                             body: o.Expression.localReference({
-                                                binding: "missing",
-                                                path: [],
+                                                name: "missing",
                                             }),
                                         }),
                                     },
@@ -843,7 +903,7 @@ describe("Ontology Validation", () => {
                                 name: "taskId",
                                 displayName: "Task ID",
                                 type: o.string({}),
-                                defaultValue: o.Expression.functionCall(o.FunctionCallExpression.uuid({})),
+                                defaultValue: o.Expression.uuid({}),
                             },
                             {
                                 name: "status",
@@ -858,11 +918,11 @@ describe("Ontology Validation", () => {
                                 values: [
                                     {
                                         property: ["taskId"],
-                                        value: o.Expression.valueReference({ path: ["taskId"] }),
+                                        value: o.Expression.inputReference({ name: "taskId" }),
                                     },
                                     {
                                         property: ["status"],
-                                        value: o.Expression.valueReference({ path: ["status"] }),
+                                        value: o.Expression.inputReference({ name: "status" }),
                                     },
                                 ],
                             }),
@@ -906,7 +966,7 @@ describe("Ontology Validation", () => {
                                 values: [
                                     {
                                         property: ["taskId"],
-                                        value: o.Expression.valueReference({ path: ["taskId"] }),
+                                        value: o.Expression.inputReference({ name: "taskId" }),
                                     },
                                     {
                                         property: ["status"],
@@ -979,7 +1039,7 @@ describe("Ontology Validation", () => {
                                     {
                                         property: ["createdBy"],
                                         value: o.Expression.contextReference({
-                                            path: ["user"],
+                                            name: "user",
                                         }),
                                     },
                                 ],

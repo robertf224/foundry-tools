@@ -12,7 +12,7 @@ vi.mock("@osdk/client.unstable", () => ({
 import {
     convertOmsActionParameterStringConstraint,
     convertOmsActionParameterStringSuggestions,
-} from "./convertOmsActionPrefills.js";
+} from "./convertOmsActionParameterMetadata.js";
 import { loadActionTypeOmsMetadata } from "./loadActionTypeOmsMetadata.js";
 
 const client = {
@@ -30,7 +30,7 @@ describe("loadActionTypeOmsMetadata", () => {
     it("loads OMS metadata in bulk and preserves RID alignment", async () => {
         const actionType = {
             actionTypeLogic: { validation: { parameterValidations: {} } },
-            metadata: {},
+            metadata: { parameters: {} },
         };
         bulkLoadOntologyEntities.mockResolvedValue({
             actionTypes: [{ actionType }, null],
@@ -59,7 +59,10 @@ describe("loadActionTypeOmsMetadata", () => {
                 typeGroups: [],
             }
         );
-        expect(result.get("ri.action.one")).toBe(actionType);
+        expect(result.get("ri.action.one")).toEqual({
+            actionType,
+            propertyApiNamesByParameter: new Map(),
+        });
         expect(result.has("ri.action.two")).toBe(false);
     });
 
@@ -104,7 +107,7 @@ describe("loadActionTypeOmsMetadata", () => {
                     },
                 },
             },
-            metadata: {},
+            metadata: { parameters: {} },
         };
         bulkLoadOntologyEntities.mockResolvedValue({
             actionTypes: [
@@ -127,7 +130,7 @@ describe("loadActionTypeOmsMetadata", () => {
         ).get("ri.action.country");
 
         expect(
-            loaded?.actionTypeLogic.validation.parameterValidations
+            loaded?.actionType.actionTypeLogic.validation.parameterValidations
                 .country?.defaultValidation.validation.allowedValues
         ).toBeDefined();
         expect(
@@ -151,6 +154,101 @@ describe("loadActionTypeOmsMetadata", () => {
                 label: "Canada",
             },
         ]);
+    });
+
+    it("loads dependent object types by private parameter object ID at the action ontology version", async () => {
+        const actionType = {
+            actionTypeLogic: {
+                validation: {
+                    parameterValidations: {
+                        color: {
+                            defaultValidation: {
+                                display: {
+                                    prefill: {
+                                        type: "objectParameterPropertyValue",
+                                        objectParameterPropertyValue:
+                                            {
+                                                parameterId:
+                                                    "project",
+                                                propertyTypeId:
+                                                    "project-color",
+                                            },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            metadata: {
+                parameters: {
+                    project: {
+                        type: {
+                            type: "objectReference",
+                            objectReference: {
+                                objectTypeId: "project",
+                            },
+                        },
+                    },
+                },
+            },
+        };
+        bulkLoadOntologyEntities
+            .mockResolvedValueOnce({
+                actionTypes: [
+                    {
+                        actionType,
+                        ontologyVersion: "42",
+                    },
+                ],
+            })
+            .mockResolvedValueOnce({
+                objectTypes: [
+                    {
+                        objectType: {
+                            propertyTypes: {
+                                "ri.property.project-color": {
+                                    id: "project-color",
+                                    apiName: "projectColor",
+                                },
+                            },
+                        },
+                    },
+                ],
+            });
+
+        const result = await loadActionTypeOmsMetadata(
+            client,
+            ["ri.action.update-project"]
+        );
+
+        expect(
+            bulkLoadOntologyEntities
+        ).toHaveBeenNthCalledWith(
+            2,
+            expect.anything(),
+            undefined,
+            expect.objectContaining({
+                objectTypes: [
+                    {
+                        identifier: {
+                            type: "objectTypeId",
+                            objectTypeId: "project",
+                        },
+                        versionReference: {
+                            type: "ontologyVersion",
+                            ontologyVersion: "42",
+                        },
+                    },
+                ],
+            })
+        );
+        expect(
+            result
+                .get("ri.action.update-project")
+                ?.propertyApiNamesByParameter.get("project")
+                ?.get("project-color")
+        ).toBe("projectColor");
     });
 
     it("keeps public metadata usable when the private OMS endpoint fails", async () => {

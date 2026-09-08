@@ -235,7 +235,7 @@ export default {
                     name: "postId",
                     displayName: "Post ID",
                     type: o.string({}),
-                    defaultValue: o.Expression.functionCall(o.FunctionCallExpression.uuid({})),
+                    defaultValue: o.Expression.uuid({}),
                 },
                 {
                     name: "author",
@@ -274,7 +274,7 @@ export default {
                     name: "createdAt",
                     displayName: "Created At",
                     type: o.timestamp({}),
-                    defaultValue: o.Expression.functionCall(o.FunctionCallExpression.now({})),
+                    defaultValue: o.Expression.now({}),
                 },
             ],
             logic: [
@@ -283,31 +283,38 @@ export default {
                     values: [
                         {
                             property: ["postId"],
-                            value: o.Expression.valueReference({ path: ["postId"] }),
+                            value: o.Expression.inputReference({ name: "postId" }),
                         },
                         {
                             property: ["title"],
-                            value: o.Expression.valueReference({ path: ["title"] }),
+                            value: o.Expression.inputReference({ name: "title" }),
                         },
                         {
                             property: ["body"],
-                            value: o.Expression.valueReference({ path: ["body"] }),
+                            value: o.Expression.inputReference({ name: "body" }),
                         },
                         {
                             property: ["authorId"],
-                            value: o.Expression.valueReference({ path: ["author", "authorId"] }),
+                            value: o.Expression.getAt({
+                                source: o.Expression.objectLookup({
+                                    reference: o.Expression.inputReference({
+                                        name: "author",
+                                    }),
+                                }),
+                                path: ["authorId"],
+                            }),
                         },
                         {
                             property: ["status"],
-                            value: o.Expression.valueReference({ path: ["status"] }),
+                            value: o.Expression.inputReference({ name: "status" }),
                         },
                         {
                             property: ["tags"],
-                            value: o.Expression.valueReference({ path: ["tags"] }),
+                            value: o.Expression.inputReference({ name: "tags" }),
                         },
                         {
                             property: ["createdAt"],
-                            value: o.Expression.valueReference({ path: ["createdAt"] }),
+                            value: o.Expression.inputReference({ name: "createdAt" }),
                         },
                     ],
                 }),

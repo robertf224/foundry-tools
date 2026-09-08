@@ -1,3 +1,7 @@
+import {
+    isLinkHopFromForeignKeySource,
+    resolveLinkHop,
+} from "../utils/links.js";
 import { unwrapType } from "../utils/types.js";
 import { ImageMediaTypeOptions } from "./generated/constants.js";
 import type { ValidationIssue } from "../utils/validation.js";
@@ -6,13 +10,14 @@ import type {
     ActionParameterDef,
     ActionTypeDef,
     Expression,
+    LinkTypeDef,
     ObjectTypeDef,
     OntologyIR,
     PropertyAssignment,
     PropertyDef,
     QueryFunctionTypeDef,
     TypeDef,
-    ValueReferenceExpression,
+    InputReferenceExpression,
 } from "./generated/types.js";
 
 export type ValidationResult = Result<void, ValidationIssue[]>;
@@ -280,11 +285,10 @@ function resolveType(
     return resolveType(resolved, valueTypes, new Set([...seen, name]));
 }
 
-function resolveParameterReferenceType(
+function resolveFieldType(
     type: TypeDef,
     path: string[],
-    valueTypes: ReadonlyMap<string, TypeDef>,
-    objectTypes: ReadonlyMap<string, ObjectTypeDef>
+    valueTypes: ReadonlyMap<string, TypeDef>
 ): TypeDef | undefined {
     const resolvedType = resolveType(type, valueTypes);
     if (!resolvedType) {
@@ -299,53 +303,127 @@ function resolveParameterReferenceType(
 
     switch (resolvedType.kind) {
         case "optional":
-            return resolveParameterReferenceType(resolvedType.value.type, path, valueTypes, objectTypes);
+            return resolveFieldType(resolvedType.value.type, path, valueTypes);
         case "struct": {
             const field = resolvedType.value.fields.find((candidate) => candidate.name === segment);
-            return field
-                ? resolveParameterReferenceType(field.type, rest, valueTypes, objectTypes)
-                : undefined;
-        }
-        case "objectReference": {
-            const objectType = objectTypes.get(resolvedType.value.objectType);
-            if (!objectType) {
-                return undefined;
-            }
-            const property = objectType.properties.find((candidate) => candidate.name === segment);
-            return property
-                ? resolveParameterReferenceType(property.type, rest, valueTypes, objectTypes)
-                : undefined;
+            return field ? resolveFieldType(field.type, rest, valueTypes) : undefined;
         }
         default:
             return undefined;
     }
 }
 
+type ExpressionValueType =
+    | TypeDef
+    | {
+          kind: "ontologyObject";
+          objectType: string;
+      };
+
 function resolveExpressionType(
     expression: Expression,
     parameters: ReadonlyMap<string, ActionParameterDef>,
     valueTypes: ReadonlyMap<string, TypeDef>,
     objectTypes: ReadonlyMap<string, ObjectTypeDef>,
+    linkTypes: readonly LinkTypeDef[],
     contextType: TypeDef | undefined,
     locals: ReadonlyMap<string, TypeDef>
-): TypeDef | undefined {
+): ExpressionValueType | undefined {
     switch (expression.kind) {
-        case "valueReference": {
-            const [parameterName, ...parameterPath] = expression.value.path;
-            const parameter = parameters.get(parameterName!);
-            return parameter
-                ? resolveParameterReferenceType(parameter.type, parameterPath, valueTypes, objectTypes)
-                : undefined;
-        }
+        case "inputReference":
+            return parameters.get(expression.value.name)?.type;
         case "contextReference":
             return contextType
-                ? resolveParameterReferenceType(contextType, expression.value.path, valueTypes, objectTypes)
+                ? resolveFieldType(contextType, [expression.value.name], valueTypes)
                 : undefined;
-        case "localReference": {
-            const local = locals.get(expression.value.binding);
-            return local
-                ? resolveParameterReferenceType(local, expression.value.path, valueTypes, objectTypes)
+        case "localReference":
+            return locals.get(expression.value.name);
+        case "getAt": {
+            const sourceType = resolveExpressionType(
+                expression.value.source,
+                parameters,
+                valueTypes,
+                objectTypes,
+                linkTypes,
+                contextType,
+                locals
+            );
+            if (!sourceType || expression.value.path.length === 0) {
+                return undefined;
+            }
+            if (sourceType.kind === "ontologyObject") {
+                const [propertyName, ...rest] = expression.value.path;
+                const property = objectTypes
+                    .get(sourceType.objectType)
+                    ?.properties.find((candidate) => candidate.name === propertyName);
+                return property
+                    ? resolveFieldType(property.type, rest, valueTypes)
+                    : undefined;
+            }
+            return resolveFieldType(sourceType, expression.value.path, valueTypes);
+        }
+        case "objectLookup": {
+            const referenceType = resolveExpressionType(
+                expression.value.reference,
+                parameters,
+                valueTypes,
+                objectTypes,
+                linkTypes,
+                contextType,
+                locals
+            );
+            const resolved = referenceType?.kind === "ontologyObject"
+                ? undefined
+                : referenceType
+                  ? unwrapOptionalType(referenceType, valueTypes)
+                  : undefined;
+            return resolved?.kind === "objectReference"
+                ? {
+                      kind: "ontologyObject",
+                      objectType: resolved.value.objectType,
+                  }
                 : undefined;
+        }
+        case "linkHop": {
+            const sourceType = resolveExpressionType(
+                expression.value.source,
+                parameters,
+                valueTypes,
+                objectTypes,
+                linkTypes,
+                contextType,
+                locals
+            );
+            if (sourceType?.kind !== "ontologyObject") {
+                return undefined;
+            }
+            const link = resolveLinkHop(
+                {
+                    objectTypes: [...objectTypes.values()],
+                    linkTypes: [...linkTypes],
+                },
+                sourceType.objectType,
+                expression.value.link
+            );
+            if (!link) return undefined;
+            const foreignKeyOnSource =
+                isLinkHopFromForeignKeySource(
+                    link,
+                    sourceType.objectType,
+                    expression.value.link
+                );
+            if (
+                !foreignKeyOnSource &&
+                link.cardinality === "many"
+            ) {
+                return undefined;
+            }
+            return {
+                kind: "ontologyObject",
+                objectType: foreignKeyOnSource
+                    ? link.target.objectType
+                    : link.source.objectType,
+            };
         }
         case "struct":
             return {
@@ -354,17 +432,24 @@ function resolveExpressionType(
                     fields: expression.value.fields.map((field) => ({
                         name: field.name,
                         displayName: field.name,
-                        type: resolveExpressionType(
-                            field.value,
-                            parameters,
-                            valueTypes,
-                            objectTypes,
-                            contextType,
-                            locals
-                        ) ?? {
-                            kind: "unknown",
-                            value: {},
-                        },
+                        type: (() => {
+                            const resolved = resolveExpressionType(
+                                field.value,
+                                parameters,
+                                valueTypes,
+                                objectTypes,
+                                linkTypes,
+                                contextType,
+                                locals
+                            );
+                            return resolved &&
+                                resolved.kind !== "ontologyObject"
+                                ? resolved
+                                : {
+                                      kind: "unknown" as const,
+                                      value: {},
+                                  };
+                        })(),
                     })),
                 },
             };
@@ -374,10 +459,15 @@ function resolveExpressionType(
                 parameters,
                 valueTypes,
                 objectTypes,
+                linkTypes,
                 contextType,
                 locals
             );
-            const listType = sourceType ? unwrapOptionalType(sourceType, valueTypes) : undefined;
+            const listType =
+                sourceType &&
+                sourceType.kind !== "ontologyObject"
+                    ? unwrapOptionalType(sourceType, valueTypes)
+                    : undefined;
             if (listType?.kind !== "list") {
                 return undefined;
             }
@@ -388,10 +478,11 @@ function resolveExpressionType(
                 parameters,
                 valueTypes,
                 objectTypes,
+                linkTypes,
                 contextType,
                 bodyLocals
             );
-            return bodyType
+            return bodyType && bodyType.kind !== "ontologyObject"
                 ? {
                       kind: "list",
                       value: { elementType: bodyType },
@@ -400,10 +491,10 @@ function resolveExpressionType(
         }
         case "literal":
             return { kind: "unknown", value: {} };
-        case "functionCall":
-            return expression.value.kind === "uuid"
-                ? { kind: "string", value: {} }
-                : { kind: "timestamp", value: {} };
+        case "uuid":
+            return { kind: "string", value: {} };
+        case "now":
+            return { kind: "timestamp", value: {} };
     }
 }
 
@@ -413,73 +504,98 @@ function validateExpression(
     path: (string | number)[],
     valueTypes: ReadonlyMap<string, TypeDef>,
     objectTypes: ReadonlyMap<string, ObjectTypeDef>,
+    linkTypes: readonly LinkTypeDef[],
     contextType: TypeDef | undefined,
     locals: ReadonlyMap<string, TypeDef> = new Map()
 ): ValidationIssue[] {
     switch (expression.kind) {
-        case "valueReference": {
-            if (expression.value.path.length === 0) {
-                return [
-                    { message: "Value references must include a parameter path.", path: [...path, "path"] },
-                ];
-            }
-
-            const [parameterName, ...parameterPath] = expression.value.path;
-            const parameter = parameters.get(parameterName!);
+        case "inputReference": {
+            const parameter = parameters.get(expression.value.name);
             if (!parameter) {
                 return [
                     {
-                        message: `Unknown action parameter: "${parameterName}".`,
-                        path: [...path, "path", 0],
+                        message: `Unknown action parameter: "${expression.value.name}".`,
+                        path: [...path, "name"],
                     },
                 ];
             }
-
-            return resolveParameterReferenceType(parameter.type, parameterPath, valueTypes, objectTypes)
-                ? []
-                : [
-                      {
-                          message: `Invalid value reference path on "${parameterName}".`,
-                          path: [...path, "path"],
-                      },
-                  ];
+            return [];
         }
         case "contextReference":
-            if (expression.value.path.length === 0) {
-                return [{ message: "Context references must include a path.", path: [...path, "path"] }];
-            }
             if (!contextType) {
                 return [];
             }
-            return resolveParameterReferenceType(contextType, expression.value.path, valueTypes, objectTypes)
+            return resolveFieldType(contextType, [expression.value.name], valueTypes)
                 ? []
                 : [
                       {
-                          message: `Invalid context reference path "${expression.value.path.join(".")}".`,
-                          path: [...path, "path"],
+                          message: `Unknown context value: "${expression.value.name}".`,
+                          path: [...path, "name"],
                       },
                   ];
         case "localReference": {
-            const local = locals.get(expression.value.binding);
+            const local = locals.get(expression.value.name);
             if (!local) {
                 return [
                     {
-                        message: `Unknown expression binding: "${expression.value.binding}".`,
-                        path: [...path, "binding"],
+                        message: `Unknown expression binding: "${expression.value.name}".`,
+                        path: [...path, "name"],
                     },
                 ];
             }
-            return resolveParameterReferenceType(local, expression.value.path, valueTypes, objectTypes)
-                ? []
-                : [
-                      {
-                          message: `Invalid local reference path on "${expression.value.binding}".`,
-                          path: [...path, "path"],
-                      },
-                  ];
+            return [];
+        }
+        case "getAt":
+        case "objectLookup":
+        case "linkHop": {
+            const childKey = expression.kind === "objectLookup" ? "reference" : "source";
+            const child =
+                expression.kind === "objectLookup"
+                    ? expression.value.reference
+                    : expression.value.source;
+            const errors = validateExpression(
+                child,
+                parameters,
+                [...path, childKey],
+                valueTypes,
+                objectTypes,
+                linkTypes,
+                contextType,
+                locals
+            );
+            if (
+                expression.kind === "getAt" &&
+                expression.value.path.length === 0
+            ) {
+                errors.push({
+                    message: "Get-at expression paths must not be empty.",
+                    path: [...path, "path"],
+                });
+            }
+            const resolved = resolveExpressionType(
+                expression,
+                parameters,
+                valueTypes,
+                objectTypes,
+                linkTypes,
+                contextType,
+                locals
+            );
+            if (!resolved) {
+                errors.push({
+                    message:
+                        expression.kind === "getAt"
+                            ? "Get-at expression source and path must resolve structurally."
+                            : expression.kind === "objectLookup"
+                              ? "Object lookup references must resolve to an object reference."
+                              : "Link hop must resolve to a named to-one link.",
+                    path,
+                });
+            }
+            return errors;
         }
         case "struct": {
-            const errors: ValidationError[] = [];
+            const errors: ValidationIssue[] = [];
             const names = new Set<string>();
             for (let index = 0; index < expression.value.fields.length; index++) {
                 const field = expression.value.fields[index]!;
@@ -497,6 +613,7 @@ function validateExpression(
                         [...path, "fields", index, "value"],
                         valueTypes,
                         objectTypes,
+                        linkTypes,
                         contextType,
                         locals
                     )
@@ -511,6 +628,7 @@ function validateExpression(
                 [...path, "source"],
                 valueTypes,
                 objectTypes,
+                linkTypes,
                 contextType,
                 locals
             );
@@ -519,10 +637,15 @@ function validateExpression(
                 parameters,
                 valueTypes,
                 objectTypes,
+                linkTypes,
                 contextType,
                 locals
             );
-            const listType = sourceType ? unwrapOptionalType(sourceType, valueTypes) : undefined;
+            const listType =
+                sourceType &&
+                sourceType.kind !== "ontologyObject"
+                    ? unwrapOptionalType(sourceType, valueTypes)
+                    : undefined;
             if (sourceType && listType?.kind !== "list") {
                 errors.push({
                     message: "Map expression source must resolve to a list.",
@@ -547,13 +670,15 @@ function validateExpression(
                     [...path, "body"],
                     valueTypes,
                     objectTypes,
+                    linkTypes,
                     contextType,
                     bodyLocals
                 )
             );
             return errors;
         }
-        case "functionCall":
+        case "uuid":
+        case "now":
         case "literal":
             return [];
     }
@@ -588,43 +713,32 @@ function areDefaultTypesCompatible(
 }
 
 function validateActionObjectReference(
-    reference: ValueReferenceExpression,
+    reference: InputReferenceExpression,
     parameters: ReadonlyMap<string, ActionParameterDef>,
     path: (string | number)[],
     valueTypes: ReadonlyMap<string, TypeDef>,
     objectTypes: ReadonlyMap<string, ObjectTypeDef>
 ): { errors: ValidationIssue[]; objectType?: ObjectTypeDef } {
-    if (reference.path.length !== 1) {
-        return {
-            errors: [
-                {
-                    message: "Action targets must point directly to an object reference parameter.",
-                    path: [...path, "path"],
-                },
-            ],
-        };
-    }
-
-    const [parameterName] = reference.path;
-    const parameter = parameters.get(parameterName!);
+    const parameterName = reference.name;
+    const parameter = parameters.get(parameterName);
     if (!parameter) {
         return {
             errors: [
                 {
                     message: `Unknown action parameter: "${parameterName}".`,
-                    path: [...path, "path", 0],
+                    path: [...path, "name"],
                 },
             ],
         };
     }
 
-    const resolved = resolveParameterReferenceType(parameter.type, [], valueTypes, objectTypes);
+    const resolved = resolveType(parameter.type, valueTypes);
     if (!resolved || resolved.kind !== "objectReference") {
         return {
             errors: [
                 {
                     message: `Action target parameter "${parameterName}" must be an object reference.`,
-                    path: [...path, "path", 0],
+                    path: [...path, "name"],
                 },
             ],
         };
@@ -637,7 +751,7 @@ function validateActionObjectReference(
               errors: [
                   {
                       message: `Unknown object type reference: "${resolved.value.objectType}".`,
-                      path: [...path, "path", 0],
+                      path: [...path, "name"],
                   },
               ],
           };
@@ -650,6 +764,7 @@ function validateActionPropertyAssignment(
     path: (string | number)[],
     valueTypes: ReadonlyMap<string, TypeDef>,
     objectTypes: ReadonlyMap<string, ObjectTypeDef>,
+    linkTypes: readonly LinkTypeDef[],
     contextType: TypeDef | undefined
 ): ValidationIssue[] {
     if (assignment.property.length === 0) {
@@ -669,13 +784,14 @@ function validateActionPropertyAssignment(
         ];
     }
 
-    const resolved = resolveParameterReferenceType(property.type, rest, valueTypes, objectTypes);
+    const resolved = resolveFieldType(property.type, rest, valueTypes);
     const errors = validateExpression(
         assignment.value,
         parameters,
         [...path, "value"],
         valueTypes,
         objectTypes,
+        linkTypes,
         contextType
     );
 
@@ -695,6 +811,7 @@ function validateAction(
     path: (string | number)[],
     valueTypes: ReadonlyMap<string, TypeDef>,
     objectTypes: ReadonlyMap<string, ObjectTypeDef>,
+    linkTypes: readonly LinkTypeDef[],
     contextType: TypeDef | undefined
 ): ValidationIssue[] {
     const errors: ValidationIssue[] = [];
@@ -730,21 +847,28 @@ function validateAction(
                     [...parameterPath, "defaultValue"],
                     valueTypes,
                     objectTypes,
+                    linkTypes,
                     contextType
                 )
             );
-            if (parameter.defaultValue.kind === "valueReference") {
-                const [sourceParameterName, ...sourcePath] = parameter.defaultValue.value.path;
-                const sourceParameter = parameters.get(sourceParameterName!);
-                const sourceType = sourceParameter
-                    ? resolveParameterReferenceType(sourceParameter.type, sourcePath, valueTypes, objectTypes)
-                    : undefined;
-                if (sourceType && !areDefaultTypesCompatible(parameter.type, sourceType, valueTypes)) {
-                    errors.push({
-                        message: `Default value for "${parameter.name}" has an incompatible type.`,
-                        path: [...parameterPath, "defaultValue"],
-                    });
-                }
+            const sourceType = resolveExpressionType(
+                parameter.defaultValue,
+                parameters,
+                valueTypes,
+                objectTypes,
+                linkTypes,
+                contextType,
+                new Map()
+            );
+            if (
+                sourceType &&
+                sourceType.kind !== "ontologyObject" &&
+                !areDefaultTypesCompatible(parameter.type, sourceType, valueTypes)
+            ) {
+                errors.push({
+                    message: `Default value for "${parameter.name}" has an incompatible type.`,
+                    path: [...parameterPath, "defaultValue"],
+                });
             }
         }
     }
@@ -772,6 +896,7 @@ function validateAction(
                             [...stepPath, "value", "values", valueIndex],
                             valueTypes,
                             objectTypes,
+                            linkTypes,
                             contextType
                         )
                     );
@@ -799,6 +924,7 @@ function validateAction(
                             [...stepPath, "value", "values", valueIndex],
                             valueTypes,
                             objectTypes,
+                            linkTypes,
                             contextType
                         )
                     );
@@ -989,14 +1115,11 @@ export function validate(ontology: OntologyIR): ValidationResult {
 
         const foreignKeyRoot = lt.foreignKey.split(".")[0]!;
         const sourceType = ontology.objectTypes.find((candidate) => candidate.name === lt.source.objectType);
-        const targetType = ontology.objectTypes.find((candidate) => candidate.name === lt.target.objectType);
         const sourceHasFk =
             sourceType?.properties.some((property) => property.name === foreignKeyRoot) ?? false;
-        const targetHasFk =
-            targetType?.properties.some((property) => property.name === foreignKeyRoot) ?? false;
-        if (!sourceHasFk && !targetHasFk) {
+        if (sourceType && !sourceHasFk) {
             errors.push({
-                message: `Foreign key "${lt.foreignKey}" does not exist on either side of link "${lt.id}".`,
+                message: `Foreign key "${lt.foreignKey}" does not exist on source object type "${lt.source.objectType}" for link "${lt.id}".`,
                 path: [...ltPath, "foreignKey"],
             });
         }
@@ -1015,7 +1138,16 @@ export function validate(ontology: OntologyIR): ValidationResult {
         }
         actionNames.add(action.name);
 
-        errors.push(...validateAction(action, actionPath, valueTypes, objectTypes, ontology.contextType));
+        errors.push(
+            ...validateAction(
+                action,
+                actionPath,
+                valueTypes,
+                objectTypes,
+                ontology.linkTypes,
+                ontology.contextType
+            )
+        );
     }
 
     const queryFunctionTypeNames = new Set<string>();

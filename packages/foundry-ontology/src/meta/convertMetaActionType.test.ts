@@ -63,25 +63,45 @@ function structField(parameterId: string, field: string): never {
 function omsActionMetadata(
     parameterName: string,
     allowedValues: Record<string, unknown>,
-    prefill?: Record<string, unknown>
+    prefill?: Record<string, unknown>,
+    resolvedProperty?: {
+        parameterId: string;
+        propertyTypeId: string;
+        propertyApiName: string;
+    }
 ): never {
     return {
-        actionTypeLogic: {
-            validation: {
-                parameterValidations: {
-                    [parameterName]: {
-                        defaultValidation: {
-                            display: {
-                                prefill,
-                            },
-                            validation: {
-                                allowedValues,
+        actionType: {
+            actionTypeLogic: {
+                validation: {
+                    parameterValidations: {
+                        [parameterName]: {
+                            defaultValidation: {
+                                display: {
+                                    prefill,
+                                },
+                                validation: {
+                                    allowedValues,
+                                },
                             },
                         },
                     },
                 },
             },
         },
+        propertyApiNamesByParameter: resolvedProperty
+            ? new Map([
+                  [
+                      resolvedProperty.parameterId,
+                      new Map([
+                          [
+                              resolvedProperty.propertyTypeId,
+                              resolvedProperty.propertyApiName,
+                          ],
+                      ]),
+                  ],
+              ])
+            : new Map(),
     } as never;
 }
 
@@ -124,6 +144,28 @@ describe("convertFoundryMetaActionType parameter validation", () => {
         expect(convertFoundryMetaActionType(actionType({}))).toMatchObject({
             id: "ri.actions.main.action-type.example",
             name: "validatedAction",
+        });
+    });
+
+    it("preserves decimal parameters as strings", () => {
+        const result = convertFoundryMetaActionType(
+            actionType({
+                amount: {
+                    displayName: "Amount",
+                    dataType: {
+                        type: "decimal",
+                        precision: 38,
+                        scale: 18,
+                    },
+                    required: true,
+                    typeClasses: [],
+                },
+            })
+        );
+
+        expect(result.parameters[0]?.type).toEqual({
+            kind: "string",
+            value: {},
         });
     });
 
@@ -291,7 +333,7 @@ describe("convertFoundryMetaActionType parameter validation", () => {
                             value: {
                                 kind: "contextReference",
                                 value: {
-                                    path: ["user"],
+                                    name: "user",
                                 },
                             },
                         },
@@ -358,8 +400,8 @@ describe("convertFoundryMetaActionType struct assignments", () => {
                         {
                             property: ["entries"],
                             value: {
-                                kind: "valueReference",
-                                value: { path: ["entries"] },
+                                kind: "inputReference",
+                                value: { name: "entries" },
                             },
                         },
                     ],
@@ -406,8 +448,14 @@ describe("convertFoundryMetaActionType struct assignments", () => {
                         {
                             property: ["details", "code"],
                             value: {
-                                kind: "valueReference",
-                                value: { path: ["details", "code"] },
+                                kind: "getAt",
+                                value: {
+                                    source: {
+                                        kind: "inputReference",
+                                        value: { name: "details" },
+                                    },
+                                    path: ["code"],
+                                },
                             },
                         },
                     ],
@@ -426,9 +474,12 @@ describe("convertFoundryMetaActionType struct assignments", () => {
                 {
                     name: "code",
                     value: {
-                        kind: "localReference",
+                        kind: "getAt",
                         value: {
-                            binding: "item",
+                            source: {
+                                kind: "localReference",
+                                value: { name: "item" },
+                            },
                             path: ["code"],
                         },
                     },
@@ -445,9 +496,12 @@ describe("convertFoundryMetaActionType struct assignments", () => {
                 {
                     name: "renamedCode",
                     value: {
-                        kind: "localReference",
+                        kind: "getAt",
                         value: {
-                            binding: "item",
+                            source: {
+                                kind: "localReference",
+                                value: { name: "item" },
+                            },
                             path: ["code"],
                         },
                     },
@@ -455,9 +509,12 @@ describe("convertFoundryMetaActionType struct assignments", () => {
                 {
                     name: "enabled",
                     value: {
-                        kind: "localReference",
+                        kind: "getAt",
                         value: {
-                            binding: "item",
+                            source: {
+                                kind: "localReference",
+                                value: { name: "item" },
+                            },
                             path: ["enabled"],
                         },
                     },
@@ -487,9 +544,9 @@ describe("convertFoundryMetaActionType struct assignments", () => {
                                 kind: "map",
                                 value: {
                                     source: {
-                                        kind: "valueReference",
+                                        kind: "inputReference",
                                         value: {
-                                            path: ["entries"],
+                                            name: "entries",
                                         },
                                     },
                                     binding: "item",
@@ -720,25 +777,39 @@ describe("convertFoundryMetaActionType OMS string constraints", () => {
     });
 
     it("preserves open OMS one-of values as optional string suggestions", () => {
-        const result = convertFoundryMetaActionType(
-            actionType({
-                country: {
-                    displayName: "Country",
-                    dataType: { type: "string" },
-                    required: false,
-                    typeClasses: [],
+        const metadata = actionType({
+            country: {
+                displayName: "Country",
+                dataType: { type: "string" },
+                required: false,
+                typeClasses: [],
+            },
+            claim: {
+                displayName: "Claim",
+                dataType: {
+                    type: "object",
+                    objectTypeApiName: "Claim",
+                    objectApiName: "claim",
                 },
-                claim: {
-                    displayName: "Claim",
-                    dataType: {
-                        type: "object",
-                        objectTypeApiName: "Claim",
-                        objectApiName: "claim",
+                required: true,
+                typeClasses: [],
+            },
+        });
+        metadata.fullLogicRules = [
+            {
+                type: "modifyObject",
+                objectToModify: "claim",
+                propertyArguments: {
+                    country: {
+                        type: "parameterId",
+                        parameterId: "country",
                     },
-                    required: true,
-                    typeClasses: [],
                 },
-            }),
+                structPropertyArguments: {},
+            } as never,
+        ];
+        const result = convertFoundryMetaActionType(
+            metadata,
             omsActionMetadata(
                 "country",
                 omsOneOf(
@@ -755,6 +826,11 @@ describe("convertFoundryMetaActionType OMS string constraints", () => {
                         parameterId: "claim",
                         propertyTypeId: "country",
                     },
+                },
+                {
+                    propertyTypeId: "country",
+                    parameterId: "claim",
+                    propertyApiName: "country",
                 }
             )
         );
@@ -784,9 +860,18 @@ describe("convertFoundryMetaActionType OMS string constraints", () => {
             },
         });
         expect(result.parameters[0]?.defaultValue).toEqual({
-            kind: "valueReference",
+            kind: "getAt",
             value: {
-                path: ["claim", "country"],
+                source: {
+                    kind: "objectLookup",
+                    value: {
+                        reference: {
+                            kind: "inputReference",
+                            value: { name: "claim" },
+                        },
+                    },
+                },
+                path: ["country"],
             },
         });
     });
@@ -930,56 +1015,60 @@ describe("convertFoundryMetaActionType OMS string constraints", () => {
 
 describe("convertFoundryMetaActionType OMS defaults", () => {
     it("converts static and object-property prefills to parameter defaults", () => {
+        const metadata = actionType({
+            assignee: {
+                displayName: "Assignee",
+                dataType: {
+                    type: "object",
+                    objectTypeApiName: "User",
+                    objectApiName: "User",
+                },
+                required: true,
+                typeClasses: [],
+            },
+            assigneeName: {
+                displayName: "Assignee name",
+                dataType: { type: "string" },
+                required: false,
+                typeClasses: [],
+            },
+            notes: {
+                displayName: "Notes",
+                dataType: { type: "string" },
+                required: false,
+                typeClasses: [],
+            },
+        });
         const result = convertFoundryMetaActionType(
-            actionType({
-                assignee: {
-                    displayName: "Assignee",
-                    dataType: {
-                        type: "object",
-                        objectTypeApiName: "User",
-                        objectApiName: "User",
-                    },
-                    required: true,
-                    typeClasses: [],
-                },
-                assigneeName: {
-                    displayName: "Assignee name",
-                    dataType: { type: "string" },
-                    required: false,
-                    typeClasses: [],
-                },
-                notes: {
-                    displayName: "Notes",
-                    dataType: { type: "string" },
-                    required: false,
-                    typeClasses: [],
-                },
-            }),
+            metadata,
             {
-                actionTypeLogic: {
-                    validation: {
-                        parameterValidations: {
-                            assigneeName: {
-                                defaultValidation: {
-                                    display: {
-                                        prefill: {
-                                            type: "objectParameterPropertyValue",
-                                            objectParameterPropertyValue: {
-                                                parameterId: "assignee",
-                                                propertyTypeId: "name",
+                actionType: {
+                    actionTypeLogic: {
+                        validation: {
+                            parameterValidations: {
+                                assigneeName: {
+                                    defaultValidation: {
+                                        display: {
+                                            prefill: {
+                                                type: "objectParameterPropertyValue",
+                                                objectParameterPropertyValue: {
+                                                    parameterId: "assignee",
+                                                    propertyTypeId:
+                                                        "legacy-display-name-id",
+                                                },
                                             },
                                         },
                                     },
                                 },
-                            },
-                            notes: {
-                                defaultValidation: {
-                                    display: {
-                                        prefill: {
-                                            type: "staticValue",
-                                            staticValue: {
-                                                type: "string",
-                                                string: "from-foundry",
+                                notes: {
+                                    defaultValidation: {
+                                        display: {
+                                            prefill: {
+                                                type: "staticValue",
+                                                staticValue: {
+                                                    type: "string",
+                                                    string: "from-foundry",
+                                                },
                                             },
                                         },
                                     },
@@ -988,6 +1077,17 @@ describe("convertFoundryMetaActionType OMS defaults", () => {
                         },
                     },
                 },
+                propertyApiNamesByParameter: new Map([
+                    [
+                        "assignee",
+                        new Map([
+                            [
+                                "legacy-display-name-id",
+                                "displayName",
+                            ],
+                        ]),
+                    ],
+                ]),
             } as never
         );
 
@@ -998,9 +1098,18 @@ describe("convertFoundryMetaActionType OMS defaults", () => {
             {
                 name: "assigneeName",
                 defaultValue: {
-                    kind: "valueReference",
+                    kind: "getAt",
                     value: {
-                        path: ["assignee", "name"],
+                        source: {
+                            kind: "objectLookup",
+                            value: {
+                                reference: {
+                                    kind: "inputReference",
+                                    value: { name: "assignee" },
+                                },
+                            },
+                        },
+                        path: ["displayName"],
                     },
                 },
             },
@@ -1084,15 +1193,19 @@ describe("convertFoundryMetaActionType OMS defaults", () => {
                 },
             }),
             {
-                actionTypeLogic: {
-                    validation: {
-                        parameterValidations: {
-                            assignee: {
-                                defaultValidation: {
-                                    display: {
-                                        prefill: {
-                                            type: "objectQueryPrefill",
-                                            objectQueryPrefill: { objectSet },
+                actionType: {
+                    actionTypeLogic: {
+                        validation: {
+                            parameterValidations: {
+                                assignee: {
+                                    defaultValidation: {
+                                        display: {
+                                            prefill: {
+                                                type: "objectQueryPrefill",
+                                                objectQueryPrefill: {
+                                                    objectSet,
+                                                },
+                                            },
                                         },
                                     },
                                 },
@@ -1100,6 +1213,7 @@ describe("convertFoundryMetaActionType OMS defaults", () => {
                         },
                     },
                 },
+                propertyApiNamesByParameter: new Map(),
             } as never
         );
 
@@ -1126,31 +1240,39 @@ describe("convertFoundryMetaActionType OMS defaults", () => {
                 },
             }),
             {
-                actionTypeLogic: {
-                    validation: {
-                        parameterValidations: {
-                            dueDate: {
-                                defaultValidation: {
-                                    display: {
-                                        prefill: {
-                                            type: "staticValue",
-                                            staticValue: {
-                                                type: "date",
-                                                date: { dateValue: "2026-08-31" },
+                actionType: {
+                    actionTypeLogic: {
+                        validation: {
+                            parameterValidations: {
+                                dueDate: {
+                                    defaultValidation: {
+                                        display: {
+                                            prefill: {
+                                                type: "staticValue",
+                                                staticValue: {
+                                                    type: "date",
+                                                    date: {
+                                                        dateValue:
+                                                            "2026-08-31",
+                                                    },
+                                                },
                                             },
                                         },
                                     },
                                 },
-                            },
-                            tags: {
-                                defaultValidation: {
-                                    display: {
-                                        prefill: {
-                                            type: "staticValue",
-                                            staticValue: {
-                                                type: "stringList",
-                                                stringList: {
-                                                    strings: ["priority", "customer"],
+                                tags: {
+                                    defaultValidation: {
+                                        display: {
+                                            prefill: {
+                                                type: "staticValue",
+                                                staticValue: {
+                                                    type: "stringList",
+                                                    stringList: {
+                                                        strings: [
+                                                            "priority",
+                                                            "customer",
+                                                        ],
+                                                    },
                                                 },
                                             },
                                         },
@@ -1160,6 +1282,7 @@ describe("convertFoundryMetaActionType OMS defaults", () => {
                         },
                     },
                 },
+                propertyApiNamesByParameter: new Map(),
             } as never
         );
 

@@ -71,7 +71,7 @@ const remoteServer = createRemoteOntologyServer<{ user: string }, IssueTrackerOn
         fixedActionParameterValues: {
             createIssue: {
                 createdBy: o.Expression.contextReference({
-                    path: ["user"],
+                    name: "user",
                 }),
             },
         },

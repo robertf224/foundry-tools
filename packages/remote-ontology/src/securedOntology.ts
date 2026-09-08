@@ -1,4 +1,8 @@
 import { Temporal } from "temporal-polyfill";
+import {
+    isLinkHopFromForeignKeySource,
+    resolveLinkHop,
+} from "@party-stack/ontology/utils";
 import type {
     ActionLogicStep,
     ActionTypeDef,
@@ -8,7 +12,7 @@ import type {
     OntologyIR,
     PropertyAssignment,
     TypeDef,
-    ValueReferenceExpression,
+    InputReferenceExpression,
 } from "@party-stack/ontology";
 
 export type FixedActionParameterValue = Expression;
@@ -47,13 +51,6 @@ function hasPath(value: unknown, path: string[]): boolean {
     return true;
 }
 
-function literal(value: unknown): Expression {
-    return {
-        kind: "literal",
-        value: { value },
-    };
-}
-
 function resolveType(ir: OntologyIR, type: TypeDef): TypeDef {
     if (type.kind !== "ref") return type;
     const namedType = ir.types.find((candidate) => candidate.name === type.value.name);
@@ -82,11 +79,15 @@ function getObjectType(ir: OntologyIR, objectTypeName: string): ObjectTypeDef {
 function getObjectReferenceObjectType(
     ir: OntologyIR,
     actionType: ActionTypeDef,
-    reference: ValueReferenceExpression
+    reference: InputReferenceExpression
 ): string {
-    const parameter = actionType.parameters.find((candidate) => candidate.name === reference.path[0]);
+    const parameter = actionType.parameters.find(
+        (candidate) => candidate.name === reference.name
+    );
     if (!parameter) {
-        throw new Error(`Unknown action parameter "${reference.path[0] ?? ""}".`);
+        throw new Error(
+            `Unknown action parameter "${reference.name}".`
+        );
     }
     const type = resolveType(ir, parameter.type);
     if (type.kind !== "objectReference") {
@@ -104,12 +105,18 @@ function evaluateExpression<Context>(opts: {
 }): unknown {
     switch (opts.expression.kind) {
         case "contextReference":
-            return getPath(opts.ctx, opts.expression.value.path);
+            return getPath(opts.ctx, [opts.expression.value.name]);
         case "literal":
             return opts.expression.value.value;
         case "localReference": {
-            const value = opts.locals?.get(opts.expression.value.binding);
-            return opts.expression.value.path.length > 0 ? getPath(value, opts.expression.value.path) : value;
+            return opts.locals?.get(opts.expression.value.name);
+        }
+        case "getAt": {
+            const source = evaluateExpression({
+                ...opts,
+                expression: opts.expression.value.source,
+            });
+            return getPath(source, opts.expression.value.path);
         }
         case "struct":
             return Object.fromEntries(
@@ -141,22 +148,23 @@ function evaluateExpression<Context>(opts: {
                 });
             });
         }
-        case "functionCall":
-            switch (opts.expression.value.kind) {
-                case "uuid":
-                    return globalThis.crypto.randomUUID();
-                case "now":
-                    return Temporal.Now.instant();
-            }
-        case "valueReference": {
-            const [parameterName, ...path] = opts.expression.value.path;
-            if (!parameterName) return undefined;
+        case "uuid":
+            return globalThis.crypto.randomUUID();
+        case "now":
+            return Temporal.Now.instant();
+        case "inputReference": {
+            const parameterName = opts.expression.value.name;
             const value =
                 opts.parameters[parameterName] !== undefined
                     ? opts.parameters[parameterName]
                     : opts.resolveFixedParameter(parameterName);
-            return path.length > 0 ? getPath(value, path) : value;
+            return value;
         }
+        case "objectLookup":
+        case "linkHop":
+            throw new Error(
+                `Cannot evaluate ${opts.expression.kind} without ontology object collections.`
+            );
     }
 }
 
@@ -177,6 +185,65 @@ function isActionParameterFixed<Context>(
     );
 }
 
+function getExpressionObjectType(
+    ir: OntologyIR,
+    actionName: string,
+    expression: Expression
+): string | undefined {
+    if (expression.kind === "objectLookup") {
+        const reference = expression.value.reference;
+        if (reference.kind !== "inputReference") {
+            return undefined;
+        }
+        const parameter = getActionType(
+            ir,
+            actionName
+        ).parameters.find(
+            (candidate) =>
+                candidate.name ===
+                reference.value.name
+        );
+        if (!parameter) return undefined;
+        let type = resolveType(ir, parameter.type);
+        while (type.kind === "optional") {
+            type = resolveType(ir, type.value.type);
+        }
+        return type.kind === "objectReference"
+            ? type.value.objectType
+            : undefined;
+    }
+    if (expression.kind === "linkHop") {
+        const sourceObjectType = getExpressionObjectType(
+            ir,
+            actionName,
+            expression.value.source
+        );
+        if (!sourceObjectType) return undefined;
+        const link = resolveLinkHop(
+            ir,
+            sourceObjectType,
+            expression.value.link
+        );
+        if (!link) return undefined;
+        const foreignKeyOnSource =
+            isLinkHopFromForeignKeySource(
+                link,
+                sourceObjectType,
+                expression.value.link
+            );
+        if (
+            !foreignKeyOnSource &&
+            link.cardinality === "many"
+        ) {
+            return undefined;
+        }
+        return foreignKeyOnSource
+            ? link.target.objectType
+            : link.source.objectType;
+    }
+    return undefined;
+}
+
 function projectExpression<Context>(opts: {
     expression: Expression;
     serverContext: Context;
@@ -191,13 +258,78 @@ function projectExpression<Context>(opts: {
     switch (opts.expression.kind) {
         case "contextReference":
             return opts.clientContextMode === "forward" &&
-                hasPath(opts.clientContext, opts.expression.value.path)
+                hasPath(opts.clientContext, [
+                    opts.expression.value.name,
+                ])
                 ? opts.expression
                 : undefined;
         case "literal":
-        case "functionCall":
+        case "uuid":
+        case "now":
         case "localReference":
             return opts.expression;
+        case "getAt": {
+            const objectType = getExpressionObjectType(
+                opts.ir,
+                opts.actionName,
+                opts.expression.value.source
+            );
+            if (
+                objectType &&
+                !(
+                    opts.allowedObjectTypeProperties[
+                        objectType
+                    ] ?? []
+                ).includes(opts.expression.value.path[0]!)
+            ) {
+                return undefined;
+            }
+            const source = projectExpression({
+                ...opts,
+                expression: opts.expression.value.source,
+            });
+            return source
+                ? {
+                      kind: "getAt",
+                      value: {
+                          source,
+                          path: opts.expression.value.path,
+                      },
+                  }
+                : undefined;
+        }
+        case "objectLookup": {
+            const reference = projectExpression({
+                ...opts,
+                expression: opts.expression.value.reference,
+            });
+            return reference
+                ? {
+                      kind: "objectLookup",
+                      value: { reference },
+                  }
+                : undefined;
+        }
+        case "linkHop": {
+            const source = projectExpression({
+                ...opts,
+                expression: opts.expression.value.source,
+            });
+            return source &&
+                getExpressionObjectType(
+                    opts.ir,
+                    opts.actionName,
+                    opts.expression
+                )
+                ? {
+                      kind: "linkHop",
+                      value: {
+                          source,
+                          link: opts.expression.value.link,
+                      },
+                  }
+                : undefined;
+        }
         case "struct": {
             const fields = opts.expression.value.fields.map((field) => ({
                 ...field,
@@ -238,24 +370,9 @@ function projectExpression<Context>(opts: {
                   }
                 : undefined;
         }
-        case "valueReference": {
-            const [parameterName, ...path] = opts.expression.value.path;
-            if (!parameterName) return undefined;
+        case "inputReference": {
+            const parameterName = opts.expression.value.name;
             if (opts.visibleParameters.has(parameterName)) {
-                const parameter = getActionType(opts.ir, opts.actionName).parameters.find(
-                    (candidate) => candidate.name === parameterName
-                );
-                let type = parameter ? resolveType(opts.ir, parameter.type) : undefined;
-                while (type?.kind === "optional") {
-                    type = resolveType(opts.ir, type.value.type);
-                }
-                if (
-                    path.length > 0 &&
-                    type?.kind === "objectReference" &&
-                    !(opts.allowedObjectTypeProperties[type.value.objectType] ?? []).includes(path[0]!)
-                ) {
-                    return undefined;
-                }
                 return opts.expression;
             }
             const fixedValue = getFixedActionParameterValues(
@@ -263,32 +380,16 @@ function projectExpression<Context>(opts: {
                 opts.actionName
             )?.[parameterName];
             if (fixedValue === undefined) return undefined;
-            if (path.length > 0) {
-                if (fixedValue.kind === "contextReference") {
-                    const contextPath = [...fixedValue.value.path, ...path];
-                    return opts.clientContextMode === "forward" && hasPath(opts.clientContext, contextPath)
-                        ? {
-                              kind: "contextReference",
-                              value: { path: contextPath },
-                          }
-                        : undefined;
-                }
-                const value = evaluateExpression({
-                    expression: fixedValue,
-                    ctx: opts.serverContext,
-                    parameters: {},
-                    resolveFixedParameter: () => undefined,
-                });
-                const nestedValue = getPath(value, path);
-                return nestedValue === undefined ? undefined : literal(nestedValue);
+            if (
+                fixedValue.kind === "inputReference" &&
+                fixedValue.value.name === parameterName
+            ) {
+                return undefined;
             }
-            if (fixedValue.kind === "contextReference") {
-                return opts.clientContextMode === "forward" &&
-                    hasPath(opts.clientContext, fixedValue.value.path)
-                    ? fixedValue
-                    : undefined;
-            }
-            return fixedValue;
+            return projectExpression({
+                ...opts,
+                expression: fixedValue,
+            });
         }
     }
 }

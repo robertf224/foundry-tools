@@ -47,7 +47,6 @@
         "commander": "^14.0.2",
         "effection": "^4.0.2",
         "jiti": "^2.6.1",
-        "lodash-es": "^4.17.23",
         "prettier": "^3.5.3",
         "temporal-polyfill": "^0.3.0",
         "ts-morph": "^27.0.2",
@@ -56,7 +55,6 @@
     "devDependencies": {
         "@bobbyfidz/universal-build-config": "^0.1.1",
         "@tanstack/db": "^0.8.6",
-        "@types/lodash-es": "^4.17.12",
         "eslint": "^9.25.0",
         "tsx": "^4.20.6",
         "typescript": "~5.8.3",

@@ -1,6 +1,5 @@
 import {
     ActionTypesFullMetadata,
-    ActionTypesV2,
     type ActionTypeFullMetadata,
     type ActionTypeV2,
 } from "@osdk/foundry.ontologies";
@@ -27,10 +26,10 @@ export function isNotDeclarativeActionType(actionType: ActionTypeV2): boolean {
     return actionType.operations.length === 0;
 }
 
-async function searchActionTypes(
+async function searchActionTypesFullMetadata(
     client: OntologyClient,
     options?: LoadSubsetOptions
-): Promise<ActionTypeV2[]> {
+): Promise<ActionTypeFullMetadata[]> {
     const where = convertActionTypeLoadSubsetFilter(options?.where);
     const orderBy = convertActionTypeLoadSubsetOrderBy(options?.orderBy);
     const canPushDownPagination = !options?.orderBy || orderBy !== undefined;
@@ -40,7 +39,7 @@ async function searchActionTypes(
     const results = await AsyncIterable.toArray(
         AsyncIterable.fromPagination(
             (pageSize, pageToken: string | undefined) =>
-                ActionTypesV2.search(
+                ActionTypesFullMetadata.search(
                     client,
                     client.ontologyRid,
                     {
@@ -62,20 +61,6 @@ async function searchActionTypes(
     return results.slice(offset, limit === undefined ? undefined : offset + limit);
 }
 
-async function loadActionTypeFullMetadata(
-    client: OntologyClient,
-    actionType: ActionTypeV2
-): Promise<ActionTypeFullMetadata> {
-    if (isNotDeclarativeActionType(actionType)) {
-        return {
-            actionType,
-            fullLogicRules: [],
-        };
-    }
-
-    return ActionTypesFullMetadata.get(client, client.ontologyRid, actionType.apiName, { preview: true });
-}
-
 export function actionTypeCollectionOptions(opts: ActionTypeCollectionOpts): OntologyCollectionOptions {
     return queryCollectionOptions<MetaActionType>({
         queryClient: opts.queryClient ?? new QueryClient(),
@@ -83,18 +68,19 @@ export function actionTypeCollectionOptions(opts: ActionTypeCollectionOpts): Ont
         queryKey: ["foundry", "ontology", "actionTypes"],
         syncMode: "on-demand",
         queryFn: async (ctx) => {
-            const actionTypes = await searchActionTypes(opts.client, ctx.meta?.loadSubsetOptions);
-            const [actionTypeMetadata, omsMetadata] = await Promise.all([
-                Promise.all(
-                    actionTypes.map((actionType) =>
-                        loadActionTypeFullMetadata(opts.client, actionType)
-                    )
-                ),
-                loadActionTypeOmsMetadata(
+            const actionTypeMetadata =
+                await searchActionTypesFullMetadata(
                     opts.client,
-                    actionTypes.map((actionType) => actionType.rid)
-                ),
-            ]);
+                    ctx.meta?.loadSubsetOptions
+                );
+            const omsMetadata =
+                await loadActionTypeOmsMetadata(
+                    opts.client,
+                    actionTypeMetadata.map(
+                        (metadata) =>
+                            metadata.actionType.rid
+                    )
+                );
             return actionTypeMetadata.map((metadata) =>
                 convertFoundryMetaActionType(
                     metadata,

@@ -108,11 +108,11 @@ const ir: OntologyIR = {
                     values: [
                         {
                             property: ["id"],
-                            value: o.Expression.valueReference({ path: ["id"] }),
+                            value: o.Expression.inputReference({ name: "id" }),
                         },
                         {
                             property: ["email"],
-                            value: o.Expression.valueReference({ path: ["email"] }),
+                            value: o.Expression.inputReference({ name: "email" }),
                         },
                     ],
                 }),
@@ -128,7 +128,10 @@ const ir: OntologyIR = {
                     name: "ownerEmail",
                     displayName: "Owner email",
                     type: o.string({}),
-                    defaultValue: o.Expression.contextReference({ path: ["user", "email"] }),
+                    defaultValue: o.Expression.getAt({
+                        source: o.Expression.contextReference({ name: "user" }),
+                        path: ["email"],
+                    }),
                 },
                 {
                     name: "author",
@@ -152,31 +155,31 @@ const ir: OntologyIR = {
                     values: [
                         {
                             property: ["id"],
-                            value: o.Expression.valueReference({ path: ["id"] }),
+                            value: o.Expression.inputReference({ name: "id" }),
                         },
                         {
                             property: ["title"],
-                            value: o.Expression.valueReference({ path: ["title"] }),
+                            value: o.Expression.inputReference({ name: "title" }),
                         },
                         {
                             property: ["ownerEmail"],
-                            value: o.Expression.valueReference({ path: ["ownerEmail"] }),
+                            value: o.Expression.inputReference({ name: "ownerEmail" }),
                         },
                         {
                             property: ["authorId"],
-                            value: o.Expression.valueReference({ path: ["author"] }),
+                            value: o.Expression.inputReference({ name: "author" }),
                         },
                         {
                             property: ["tags"],
-                            value: o.Expression.valueReference({ path: ["tags"] }),
+                            value: o.Expression.inputReference({ name: "tags" }),
                         },
                         {
                             property: ["meta"],
-                            value: o.Expression.valueReference({ path: ["meta"] }),
+                            value: o.Expression.inputReference({ name: "meta" }),
                         },
                         {
                             property: ["updatedAt"],
-                            value: o.Expression.functionCall(o.FunctionCallExpression.now({})),
+                            value: o.Expression.now({}),
                         },
                     ],
                 }),
@@ -204,24 +207,24 @@ const ir: OntologyIR = {
                     values: [
                         {
                             property: ["id"],
-                            value: o.Expression.valueReference({ path: ["id"] }),
+                            value: o.Expression.inputReference({ name: "id" }),
                         },
                         {
                             property: ["noteId"],
-                            value: o.Expression.valueReference({ path: ["note"] }),
+                            value: o.Expression.inputReference({ name: "note" }),
                         },
                         {
                             property: ["attachment"],
-                            value: o.Expression.valueReference({ path: ["attachment"] }),
+                            value: o.Expression.inputReference({ name: "attachment" }),
                         },
                     ],
                 }),
                 o.ActionLogicStep.updateObject({
-                    object: { path: ["note"] },
+                    object: { name: "note" },
                     values: [
                         {
                             property: ["updatedAt"],
-                            value: o.Expression.functionCall(o.FunctionCallExpression.now({})),
+                            value: o.Expression.now({}),
                         },
                     ],
                 }),

@@ -739,27 +739,53 @@ export default {
             }),
         },
         {
-            name: "ValueReferenceExpression",
-            description: "Reads a value from the root expression scope by path.",
+            name: "InputReferenceExpression",
+            description: "Reads a named input from the root expression scope.",
             type: o.struct({
                 fields: [
                     {
-                        name: "path",
-                        displayName: "Path",
-                        type: o.list({ elementType: o.string({}) }),
+                        name: "name",
+                        displayName: "Name",
+                        type: o.string({}),
                     },
                 ],
             }),
         },
         {
             name: "LocalReferenceExpression",
-            description: "Reads a lexically scoped expression binding by path.",
+            description: "Reads a named lexically scoped expression binding.",
             type: o.struct({
                 fields: [
                     {
-                        name: "binding",
-                        displayName: "Binding",
+                        name: "name",
+                        displayName: "Name",
                         type: o.string({}),
+                    },
+                ],
+            }),
+        },
+        {
+            name: "ContextReferenceExpression",
+            description: "Reads a named value from the expression context.",
+            type: o.struct({
+                fields: [
+                    {
+                        name: "name",
+                        displayName: "Name",
+                        type: o.string({}),
+                    },
+                ],
+            }),
+        },
+        {
+            name: "GetAtExpression",
+            description: "Reads a structural path from a source expression.",
+            type: o.struct({
+                fields: [
+                    {
+                        name: "source",
+                        displayName: "Source",
+                        type: o.ref({ name: "Expression" }),
                     },
                     {
                         name: "path",
@@ -770,14 +796,32 @@ export default {
             }),
         },
         {
-            name: "ContextReferenceExpression",
-            description: "Reads a value from context by path.",
+            name: "ObjectLookupExpression",
+            description: "Resolves an object reference to its ontology object.",
             type: o.struct({
                 fields: [
                     {
-                        name: "path",
-                        displayName: "Path",
-                        type: o.list({ elementType: o.string({}) }),
+                        name: "reference",
+                        displayName: "Reference",
+                        type: o.ref({ name: "Expression" }),
+                    },
+                ],
+            }),
+        },
+        {
+            name: "LinkHopExpression",
+            description: "Follows one named to-one ontology link from a source object.",
+            type: o.struct({
+                fields: [
+                    {
+                        name: "source",
+                        displayName: "Source",
+                        type: o.ref({ name: "Expression" }),
+                    },
+                    {
+                        name: "link",
+                        displayName: "Link",
+                        type: o.string({}),
                     },
                 ],
             }),
@@ -841,14 +885,14 @@ export default {
             }),
         },
         {
-            name: "UuidFunctionCall",
+            name: "UuidExpression",
             description: "Generates a UUID value.",
             type: o.struct({
                 fields: [],
             }),
         },
         {
-            name: "NowFunctionCall",
+            name: "NowExpression",
             description: "Returns the current timestamp.",
             type: o.struct({
                 fields: [],
@@ -869,23 +913,13 @@ export default {
             }),
         },
         {
-            name: "FunctionCallExpression",
-            description: "Calls a function within an expression.",
-            type: o.union({
-                variants: [
-                    { name: "uuid", type: o.ref({ name: "UuidFunctionCall" }) },
-                    { name: "now", type: o.ref({ name: "NowFunctionCall" }) },
-                ],
-            }),
-        },
-        {
             name: "Expression",
             description: "An expression that resolves to a value.",
             type: o.union({
                 variants: [
                     {
-                        name: "valueReference",
-                        type: o.ref({ name: "ValueReferenceExpression" }),
+                        name: "inputReference",
+                        type: o.ref({ name: "InputReferenceExpression" }),
                     },
                     {
                         name: "contextReference",
@@ -896,6 +930,18 @@ export default {
                         type: o.ref({ name: "LocalReferenceExpression" }),
                     },
                     {
+                        name: "getAt",
+                        type: o.ref({ name: "GetAtExpression" }),
+                    },
+                    {
+                        name: "objectLookup",
+                        type: o.ref({ name: "ObjectLookupExpression" }),
+                    },
+                    {
+                        name: "linkHop",
+                        type: o.ref({ name: "LinkHopExpression" }),
+                    },
+                    {
                         name: "struct",
                         type: o.ref({ name: "StructExpression" }),
                     },
@@ -904,8 +950,12 @@ export default {
                         type: o.ref({ name: "MapExpression" }),
                     },
                     {
-                        name: "functionCall",
-                        type: o.ref({ name: "FunctionCallExpression" }),
+                        name: "uuid",
+                        type: o.ref({ name: "UuidExpression" }),
+                    },
+                    {
+                        name: "now",
+                        type: o.ref({ name: "NowExpression" }),
                     },
                     {
                         name: "literal",
@@ -958,7 +1008,7 @@ export default {
                     {
                         name: "object",
                         displayName: "Object",
-                        type: o.ref({ name: "ValueReferenceExpression" }),
+                        type: o.ref({ name: "InputReferenceExpression" }),
                     },
                     {
                         name: "values",
@@ -976,7 +1026,7 @@ export default {
                     {
                         name: "object",
                         displayName: "Object",
-                        type: o.ref({ name: "ValueReferenceExpression" }),
+                        type: o.ref({ name: "InputReferenceExpression" }),
                     },
                 ],
             }),

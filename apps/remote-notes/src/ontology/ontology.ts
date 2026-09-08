@@ -42,7 +42,7 @@ export const notesOntology = {
                     name: "id",
                     displayName: "ID",
                     type: o.string({}),
-                    defaultValue: o.Expression.functionCall(o.FunctionCallExpression.uuid({})),
+                    defaultValue: o.Expression.uuid({}),
                 },
                 { name: "title", displayName: "Title", type: o.string({}) },
                 { name: "bodyMarkdown", displayName: "Body", type: o.string({}) },
@@ -50,27 +50,27 @@ export const notesOntology = {
                     name: "ownerEmail",
                     displayName: "Owner Email",
                     type: o.string({}),
-                    defaultValue: o.Expression.contextReference({ path: ["user"] }),
+                    defaultValue: o.Expression.contextReference({ name: "user" }),
                 },
             ],
             logic: [
                 o.ActionLogicStep.createObject({
                     objectType: "Note",
                     values: [
-                        { property: ["id"], value: o.Expression.valueReference({ path: ["id"] }) },
-                        { property: ["ownerEmail"], value: o.Expression.valueReference({ path: ["ownerEmail"] }) },
-                        { property: ["title"], value: o.Expression.valueReference({ path: ["title"] }) },
+                        { property: ["id"], value: o.Expression.inputReference({ name: "id" }) },
+                        { property: ["ownerEmail"], value: o.Expression.inputReference({ name: "ownerEmail" }) },
+                        { property: ["title"], value: o.Expression.inputReference({ name: "title" }) },
                         {
                             property: ["bodyMarkdown"],
-                            value: o.Expression.valueReference({ path: ["bodyMarkdown"] }),
+                            value: o.Expression.inputReference({ name: "bodyMarkdown" }),
                         },
                         {
                             property: ["createdAt"],
-                            value: o.Expression.functionCall(o.FunctionCallExpression.now({})),
+                            value: o.Expression.now({}),
                         },
                         {
                             property: ["updatedAt"],
-                            value: o.Expression.functionCall(o.FunctionCallExpression.now({})),
+                            value: o.Expression.now({}),
                         },
                     ],
                 }),
@@ -86,16 +86,16 @@ export const notesOntology = {
             ],
             logic: [
                 o.ActionLogicStep.updateObject({
-                    object: { path: ["note"] },
+                    object: { name: "note" },
                     values: [
-                        { property: ["title"], value: o.Expression.valueReference({ path: ["title"] }) },
+                        { property: ["title"], value: o.Expression.inputReference({ name: "title" }) },
                         {
                             property: ["bodyMarkdown"],
-                            value: o.Expression.valueReference({ path: ["bodyMarkdown"] }),
+                            value: o.Expression.inputReference({ name: "bodyMarkdown" }),
                         },
                         {
                             property: ["updatedAt"],
-                            value: o.Expression.functionCall(o.FunctionCallExpression.now({})),
+                            value: o.Expression.now({}),
                         },
                     ],
                 }),
@@ -107,7 +107,7 @@ export const notesOntology = {
             parameters: [
                 { name: "note", displayName: "Note", type: o.objectReference({ objectType: "Note" }) },
             ],
-            logic: [o.ActionLogicStep.deleteObject({ object: { path: ["note"] } })],
+            logic: [o.ActionLogicStep.deleteObject({ object: { name: "note" } })],
         },
         {
             name: "createNoteAttachment",
@@ -117,14 +117,17 @@ export const notesOntology = {
                     name: "id",
                     displayName: "ID",
                     type: o.string({}),
-                    defaultValue: o.Expression.valueReference({ path: ["attachment", "id"] }),
+                    defaultValue: o.Expression.getAt({
+                        source: o.Expression.inputReference({ name: "attachment" }),
+                        path: ["id"],
+                    }),
                 },
                 { name: "note", displayName: "Note", type: o.objectReference({ objectType: "Note" }) },
                 {
                     name: "ownerEmail",
                     displayName: "Owner Email",
                     type: o.string({}),
-                    defaultValue: o.Expression.contextReference({ path: ["user"] }),
+                    defaultValue: o.Expression.contextReference({ name: "user" }),
                 },
                 { name: "attachment", displayName: "Attachment", type: o.attachment({}) },
             ],
@@ -132,25 +135,25 @@ export const notesOntology = {
                 o.ActionLogicStep.createObject({
                     objectType: "NoteAttachment",
                     values: [
-                        { property: ["id"], value: o.Expression.valueReference({ path: ["id"] }) },
-                        { property: ["noteId"], value: o.Expression.valueReference({ path: ["note"] }) },
-                        { property: ["ownerEmail"], value: o.Expression.valueReference({ path: ["ownerEmail"] }) },
+                        { property: ["id"], value: o.Expression.inputReference({ name: "id" }) },
+                        { property: ["noteId"], value: o.Expression.inputReference({ name: "note" }) },
+                        { property: ["ownerEmail"], value: o.Expression.inputReference({ name: "ownerEmail" }) },
                         {
                             property: ["attachment"],
-                            value: o.Expression.valueReference({ path: ["attachment"] }),
+                            value: o.Expression.inputReference({ name: "attachment" }),
                         },
                         {
                             property: ["createdAt"],
-                            value: o.Expression.functionCall(o.FunctionCallExpression.now({})),
+                            value: o.Expression.now({}),
                         },
                     ],
                 }),
                 o.ActionLogicStep.updateObject({
-                    object: { path: ["note"] },
+                    object: { name: "note" },
                     values: [
                         {
                             property: ["updatedAt"],
-                            value: o.Expression.functionCall(o.FunctionCallExpression.now({})),
+                            value: o.Expression.now({}),
                         },
                     ],
                 }),

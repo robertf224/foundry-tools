@@ -6,7 +6,6 @@ import { createFoundryMetaOntologyBackendAdapter } from "./createFoundryMetaOnto
 
 const mocks = vi.hoisted(() => ({
     bulkLoadOntologyEntities: vi.fn(),
-    getFullMetadata: vi.fn(),
     searchActionTypes: vi.fn(),
 }));
 
@@ -18,13 +17,9 @@ vi.mock("@osdk/foundry.ontologies", async (importOriginal) => {
     const original = await importOriginal<typeof import("@osdk/foundry.ontologies")>();
     return {
         ...original,
-        ActionTypesV2: {
-            ...original.ActionTypesV2,
+        ActionTypesFullMetadata: {
+            ...original.ActionTypesFullMetadata,
             search: mocks.searchActionTypes,
-        },
-        OntologiesV2: {
-            ...original.OntologiesV2,
-            getFullMetadata: mocks.getFullMetadata,
         },
     };
 });
@@ -38,28 +33,26 @@ const client: OntologyClient = {
 
 beforeEach(() => {
     mocks.bulkLoadOntologyEntities.mockReset();
-    mocks.getFullMetadata.mockReset();
     mocks.searchActionTypes.mockReset();
-    mocks.getFullMetadata.mockResolvedValue({
-        objectTypes: {},
-        valueTypes: {},
-    });
     mocks.bulkLoadOntologyEntities.mockResolvedValue({
         actionTypes: [],
     });
 });
 
 describe("Foundry ActionType metadata ID queries", () => {
-    it("pushes an ID predicate into ActionTypesV2.search", async () => {
+    it("pushes an ID predicate into ActionTypesFullMetadata.search", async () => {
         mocks.searchActionTypes.mockResolvedValue({
             data: [
                 {
-                    apiName: "create-task",
-                    displayName: "Create task",
-                    status: "ACTIVE",
-                    parameters: {},
-                    rid: "ri.actions.main.action-type.create-task",
-                    operations: [],
+                    actionType: {
+                        apiName: "create-task",
+                        displayName: "Create task",
+                        status: "ACTIVE",
+                        parameters: {},
+                        rid: "ri.actions.main.action-type.create-task",
+                        operations: [],
+                    },
+                    fullLogicRules: [],
                 },
             ],
             nextPageToken: undefined,

@@ -30,7 +30,12 @@ const ir: OntologyIR = {
                     name: "ownerEmail",
                     displayName: "Owner",
                     type: o.string({}),
-                    defaultValue: o.Expression.contextReference({ path: ["user", "email"] }),
+                    defaultValue: o.Expression.getAt({
+                        source: o.Expression.contextReference({
+                            name: "user",
+                        }),
+                        path: ["email"],
+                    }),
                 },
                 { name: "dueDate", displayName: "Due date", type: o.date({}) },
             ],

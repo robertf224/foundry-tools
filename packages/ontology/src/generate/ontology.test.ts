@@ -109,8 +109,13 @@ describe("generateOntology", () => {
                             name: "name",
                             displayName: "Name",
                             type: o.string({}),
-                            defaultValue: o.Expression.valueReference({
-                                path: ["employee", "name"],
+                            defaultValue: o.Expression.getAt({
+                                source: o.Expression.objectLookup({
+                                    reference: o.Expression.inputReference({
+                                        name: "employee",
+                                    }),
+                                }),
+                                path: ["name"],
                             }),
                         },
                     ],
@@ -121,7 +126,8 @@ describe("generateOntology", () => {
         };
 
         const output = generateOntology(ontology);
-        expect(output).toContain("o.Expression.valueReference");
+        expect(output).toContain("o.Expression.getAt");
+        expect(output).toContain('kind: "objectLookup"');
         expect(output).toContain('objectType: "Employee"');
     });
 });

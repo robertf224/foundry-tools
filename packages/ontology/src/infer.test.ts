@@ -77,7 +77,7 @@ describe("Infer", () => {
                         name: "createdAt",
                         displayName: "Created At",
                         type: o.timestamp({}),
-                        defaultValue: o.Expression.functionCall(o.FunctionCallExpression.now({})),
+                        defaultValue: o.Expression.now({}),
                     },
                 ],
                 logic: [],

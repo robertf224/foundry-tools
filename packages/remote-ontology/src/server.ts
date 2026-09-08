@@ -261,8 +261,7 @@ function getInvalidatedObjectTypesFromActionLogic(ir: OntologyIR, actionType: st
             continue;
         }
         if (step.kind === "updateObject" || step.kind === "deleteObject") {
-            const parameterName = step.value.object.path[0];
-            if (!parameterName) continue;
+            const parameterName = step.value.object.name;
             const parameter = action.parameters.find((candidate) => candidate.name === parameterName);
             if (!parameter || parameter.type.kind !== "objectReference") continue;
             objectTypes.add(parameter.type.value.objectType);

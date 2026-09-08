@@ -400,8 +400,7 @@ describe("Foundry media attachments", () => {
         expect(mediaMocks.metadata).toHaveBeenCalledWith(
             expect.anything(),
             mediaId.mediaSetRid,
-            mediaId.mediaItemRid,
-            { preview: true }
+            mediaId.mediaItemRid
         );
         expect(ontologyMocks.getMediaMetadata).not.toHaveBeenCalled();
     });

@@ -131,7 +131,7 @@ describe("createFoundryOntologyPullSource", () => {
                                 {
                                     property: ["createdBy"],
                                     value: o.Expression.contextReference({
-                                        path: ["user"],
+                                        name: "user",
                                     }),
                                 },
                             ],
@@ -175,6 +175,6 @@ describe("createFoundryOntologyPullSource", () => {
             transformed.actionTypes[0]?.logic[0]?.kind === "createObject"
                 ? transformed.actionTypes[0].logic[0].value.values[0]?.value
                 : undefined
-        ).toEqual(o.Expression.contextReference({ path: ["user"] }));
+        ).toEqual(o.Expression.contextReference({ name: "user" }));
     });
 });

@@ -37,7 +37,12 @@ const ir: OntologyIR = {
                     values: [
                         {
                             property: ["ownerEmail"],
-                            value: o.Expression.contextReference({ path: ["user", "email"] }),
+                            value: o.Expression.getAt({
+                                source: o.Expression.contextReference({
+                                    name: "user",
+                                }),
+                                path: ["email"],
+                            }),
                         },
                     ],
                 }),
@@ -108,7 +113,12 @@ describe("remote ontology server policy projection", () => {
                 canApplyAction: () => true,
                 fixedActionParameterValues: {
                     createNote: {
-                        ownerEmail: o.Expression.contextReference({ path: ["user", "email"] }),
+                        ownerEmail: o.Expression.getAt({
+                            source: o.Expression.contextReference({
+                                name: "user",
+                            }),
+                            path: ["email"],
+                        }),
                     },
                 },
             },
@@ -217,7 +227,12 @@ describe("remote ontology server policy projection", () => {
         expect(step.value.values).toEqual([
             {
                 property: ["ownerEmail"],
-                value: o.Expression.contextReference({ path: ["user", "email"] }),
+                value: o.Expression.getAt({
+                    source: o.Expression.contextReference({
+                        name: "user",
+                    }),
+                    path: ["email"],
+                }),
             },
         ]);
     });
