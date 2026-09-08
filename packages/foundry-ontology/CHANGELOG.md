@@ -1,5 +1,11 @@
 # @party-stack/foundry-ontology
 
+## 0.14.1
+
+### Patch Changes
+
+- 9eca335: Include function-backed Foundry actions in ontology pulls.
+
 ## 0.14.0
 
 ### Minor Changes
