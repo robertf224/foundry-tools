@@ -35,6 +35,9 @@ export type LiveOntologyAction<
         parameters: Parameters,
         options?: LiveOntologyActionOptions
     ): Promise<OntologyApplyActionResult | void>;
+    resolveParameters(
+        parameters: Partial<Parameters>
+    ): Promise<Partial<Parameters>>;
     validate(parameters: Parameters): Promise<Uncertain<Result<void, readonly ValidationIssue[]>>>;
     validateDraft(
         parameters: Partial<Parameters>,
@@ -96,6 +99,7 @@ export function createLiveOntologyAction(options: {
             options.action.name,
             await resolveParameters(providedParameters)
         );
+    apply.resolveParameters = resolveParameters;
     apply.validateDraft = async (parameters, validationOptions) =>
         options.validateDraft(
             options.action.name,
