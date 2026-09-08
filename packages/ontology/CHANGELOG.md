@@ -1,5 +1,11 @@
 # @party-stack/ontology
 
+## 0.16.0
+
+### Minor Changes
+
+- 2538365: Expose action parameter default resolution on live ontology actions.
+
 ## 0.15.0
 
 ### Minor Changes
