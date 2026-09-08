@@ -626,22 +626,6 @@ function convertStructPropertyAssignments(
         );
     }
 
-    const parameterFields = parameter.dataType.subType.fields.map((field) => field.name);
-    const mappedFields = new Set(listEntries.map(([field]) => field));
-    const isWholeListIdentityMapping =
-        listEntries.length === entries.length &&
-        mappedFields.size === parameterFields.length &&
-        parameterFields.every((field) => mappedFields.has(field)) &&
-        listEntries.every(([field, argument]) => field === argument.structParameterFieldApiName);
-    if (isWholeListIdentityMapping) {
-        return [
-            {
-                property: [property],
-                value: inputReference(parameterId),
-            },
-        ];
-    }
-
     return [
         {
             property: [property],

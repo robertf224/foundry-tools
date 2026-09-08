@@ -376,7 +376,7 @@ describe("convertFoundryMetaActionType struct assignments", () => {
             },
             expectedKind: "updateObject",
         },
-    ])("converts a complete $name list mapping to one whole-list assignment", ({ rule, expectedKind }) => {
+    ])("converts a complete $name list mapping to a map expression", ({ rule, expectedKind }) => {
         const metadata = actionType({
             entries: structListParameter(),
             record: {
@@ -400,8 +400,53 @@ describe("convertFoundryMetaActionType struct assignments", () => {
                         {
                             property: ["entries"],
                             value: {
-                                kind: "inputReference",
-                                value: { name: "entries" },
+                                kind: "map",
+                                value: {
+                                    source: {
+                                        kind: "inputReference",
+                                        value: {
+                                            name: "entries",
+                                        },
+                                    },
+                                    binding: "item",
+                                    body: {
+                                        kind: "struct",
+                                        value: {
+                                            fields: [
+                                                {
+                                                    name: "code",
+                                                    value: {
+                                                        kind: "getAt",
+                                                        value: {
+                                                            source: {
+                                                                kind: "localReference",
+                                                                value: {
+                                                                    name: "item",
+                                                                },
+                                                            },
+                                                            path: ["code"],
+                                                        },
+                                                    },
+                                                },
+                                                {
+                                                    name: "enabled",
+                                                    value: {
+                                                        kind: "getAt",
+                                                        value: {
+                                                            source: {
+                                                                kind: "localReference",
+                                                                value: {
+                                                                    name: "item",
+                                                                },
+                                                            },
+                                                            path: ["enabled"],
+                                                        },
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    },
+                                },
                             },
                         },
                     ],
