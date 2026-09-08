@@ -8,4 +8,4 @@
 "@party-stack/ontology": minor
 ---
 
-improve expression language and declarative logic
+Rename expression inputs to `inputReference`, promote UUID and current-time expressions to direct variants, convert Foundry list-of-struct action assignments with backend-neutral map and struct expressions, and safely apply structured property changes to sparse objects.
