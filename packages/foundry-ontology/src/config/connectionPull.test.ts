@@ -69,7 +69,8 @@ describe("Foundry connection-backed pull", () => {
             ontologyId: "ri.ontology.main",
         });
         expect(mocks.createFoundryBackendInstallation).toHaveBeenCalledWith({
-            installationId: "foundry-pull:https://foundry.example:ri.ontology.main",
+            installationId:
+                "foundry-pull:https://foundry.example:ri.ontology.main:api:use-ontologies-read,offline_access,ontology:view-object-type,ontology:view-unredacted-action-type",
             baseUrl: "https://foundry.example",
             runtime,
             connections: {
@@ -77,7 +78,12 @@ describe("Foundry connection-backed pull", () => {
                 oauth: {
                     clientId: "client",
                     redirectUrl: "http://127.0.0.1:9876/callback",
-                    scopes: ["api:use-ontologies-read", "offline_access"],
+                    scopes: [
+                        "api:use-ontologies-read",
+                        "offline_access",
+                        "ontology:view-unredacted-action-type",
+                        "ontology:view-object-type",
+                    ],
                 },
             },
             routes: ["meta-route"],

@@ -1,28 +1,16 @@
-import { set } from "lodash-es";
+import { setAtPath } from "../../utils/paths.js";
 import { decorateObjectAttachmentSources } from "../attachments/attachmentSources.js";
-import {
-    evaluateExpression,
-    getObjectReferenceObjectType,
-} from "../expression.js";
+import { evaluateExpression, getObjectReferenceObjectType } from "../expression.js";
 import type {
     OntologyMutatorObjects,
     OntologyMutatorTx,
     OntologyPropertyChange,
     OntologyReadTx,
 } from "./types.js";
-import type {
-    ObjectTypeDef,
-    OntologyIR,
-    PropertyAssignment,
-} from "../../ir/index.js";
+import type { ObjectTypeDef, OntologyIR, PropertyAssignment } from "../../ir/index.js";
 
-function objectType(
-    ir: OntologyIR,
-    name: string
-): ObjectTypeDef {
-    const type = ir.objectTypes.find(
-        (candidate) => candidate.name === name
-    );
+function objectType(ir: OntologyIR, name: string): ObjectTypeDef {
+    const type = ir.objectTypes.find((candidate) => candidate.name === name);
     if (!type) throw new Error(`Unknown object type "${name}".`);
     return type;
 }
@@ -41,8 +29,7 @@ async function propertyChanges(options: {
             ir: options.ir,
             actionTypeName: options.actionTypeName,
             expression: assignment.value,
-            resolveParameter: (name) =>
-                Promise.resolve(options.parameters[name]),
+            resolveParameter: (name) => Promise.resolve(options.parameters[name]),
             context: options.context,
             tx: options.tx,
         });
@@ -64,28 +51,20 @@ export async function applyActionLogicToMutatorTx(options: {
     objects: OntologyMutatorObjects;
     tx: OntologyMutatorTx;
 }): Promise<void> {
-    const action = options.ir.actionTypes.find(
-        (candidate) =>
-            candidate.name === options.actionTypeName
-    );
+    const action = options.ir.actionTypes.find((candidate) => candidate.name === options.actionTypeName);
     if (!action) {
-        throw new Error(
-            `Unknown action "${options.actionTypeName}".`
-        );
+        throw new Error(`Unknown action "${options.actionTypeName}".`);
     }
 
     for (const step of action.logic) {
         if (step.kind === "createObject") {
-            const type = objectType(
-                options.ir,
-                step.value.objectType
-            );
-            const object: Record<string, unknown> = {};
+            const type = objectType(options.ir, step.value.objectType);
+            let object: Record<string, unknown> = {};
             for (const change of await propertyChanges({
                 ...options,
                 assignments: step.value.values,
             })) {
-                set(object, change.path, change.value);
+                object = setAtPath(object, change.path, change.value);
             }
             decorateObjectAttachmentSources({
                 ir: options.ir,
@@ -96,13 +75,9 @@ export async function applyActionLogicToMutatorTx(options: {
             continue;
         }
 
-        const type = getObjectReferenceObjectType(
-            options.ir,
-            options.actionTypeName,
-            step.value.object
-        );
+        const type = getObjectReferenceObjectType(options.ir, options.actionTypeName, step.value.object);
         const key = options.parameters[
-            step.value.object.path[0]!
+            step.value.object.name
         ] as string | number;
         if (step.kind === "updateObject") {
             await options.tx.mutate[type.name]!.update(

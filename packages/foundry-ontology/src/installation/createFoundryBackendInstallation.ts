@@ -40,12 +40,9 @@ function createConnectionOntologyClient(baseUrl: string, ontologyId: string, egr
     return createOntologyClient({
         baseUrl,
         ontologyRid: ontologyId,
-        // Authentication is applied by ConnectionEgress. This
-        // placeholder only satisfies the current OSDK client context.
-        tokenProvider: () =>
-            Promise.reject(
-                new Error("Token access is unavailable; authentication is applied by connection egress.")
-            ),
+        // ConnectionEgress replaces this placeholder Authorization
+        // header with the active connection token before network access.
+        tokenProvider: () => Promise.resolve("party-stack"),
         fetch: egress.fetch,
         createWebSocket: (url, protocols) => egress.createWebSocket(url, protocols),
     });

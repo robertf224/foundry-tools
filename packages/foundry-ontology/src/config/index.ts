@@ -19,7 +19,12 @@ import {
 
 export type { FoundryAttachmentConstraintOverride } from "./applyAttachmentConstraintOverrides.js";
 
-const DEFAULT_FOUNDRY_SCOPES = ["api:use-ontologies-read", "offline_access"];
+const DEFAULT_FOUNDRY_SCOPES = [
+    "api:use-ontologies-read",
+    "offline_access",
+    "ontology:view-unredacted-action-type",
+    "ontology:view-object-type",
+];
 
 export interface FoundryOntologyPullConnectionOptions {
     oauth?: FoundryOAuthConnectionOptions;
@@ -67,9 +72,12 @@ export function createFoundryOntologyPullSource(
 ): OntologyPullSource<FoundryAuthenticationClient> {
     return {
         ontologyId: options.ontologyRid,
-        createInstallation: ({ runtime }) =>
-            createFoundryBackendInstallation({
-                installationId: `foundry-pull:${options.baseUrl}:${options.ontologyRid}`,
+        createInstallation: ({ runtime }) => {
+            const scopes =
+                options.connection.oauth?.scopes ??
+                DEFAULT_FOUNDRY_SCOPES;
+            return createFoundryBackendInstallation({
+                installationId: `foundry-pull:${options.baseUrl}:${options.ontologyRid}:${[...scopes].sort().join(",")}`,
                 baseUrl: options.baseUrl,
                 runtime,
                 connections: {
@@ -77,7 +85,7 @@ export function createFoundryOntologyPullSource(
                     oauth: options.connection.oauth
                         ? {
                               ...options.connection.oauth,
-                              scopes: options.connection.oauth.scopes ?? DEFAULT_FOUNDRY_SCOPES,
+                              scopes,
                           }
                         : undefined,
                 },
@@ -86,7 +94,8 @@ export function createFoundryOntologyPullSource(
                         ontologyId: options.ontologyRid,
                     }),
                 ],
-            }),
+            });
+        },
         async resolveConnection(installation) {
             const configuredUserId = options.connection.userId;
             const activeConnections = [...installation.connections.values()]

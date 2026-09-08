@@ -1,7 +1,4 @@
-import {
-    createCollection,
-    localOnlyCollectionOptions,
-} from "@tanstack/db";
+import { createCollection, localOnlyCollectionOptions } from "@tanstack/db";
 import { describe, expect, it } from "vitest";
 import { o } from "../ir/index.js";
 import { evaluateExpression } from "./expression.js";
@@ -45,6 +42,21 @@ const ir: OntologyIR = {
                         objectType: "User",
                     }),
                 },
+                {
+                    name: "entries",
+                    displayName: "Entries",
+                    type: o.list({
+                        elementType: o.struct({
+                            fields: [
+                                {
+                                    name: "code",
+                                    displayName: "Code",
+                                    type: o.string({}),
+                                },
+                            ],
+                        }),
+                    }),
+                },
             ],
             logic: [],
         },
@@ -52,15 +64,11 @@ const ir: OntologyIR = {
 };
 
 describe("evaluateExpression", () => {
-    it("resolves object-reference paths through the read transaction", async () => {
+    it("resolves explicit object lookups through the read transaction", async () => {
         const users = createCollection(
-            localOnlyCollectionOptions<
-                OntologyObject,
-                string | number
-            >({
+            localOnlyCollectionOptions<OntologyObject, string | number>({
                 id: "expression-users",
-                getKey: (user) =>
-                    user.id as string | number,
+                getKey: (user) => user.id as string | number,
                 initialData: [
                     {
                         id: "user-1",
@@ -76,13 +84,21 @@ describe("evaluateExpression", () => {
                 ir,
                 actionTypeName: "assign",
                 expression: {
-                    kind: "valueReference",
+                    kind: "getAt",
                     value: {
-                        path: ["user", "name"],
+                        source: {
+                            kind: "objectLookup",
+                            value: {
+                                reference: {
+                                    kind: "inputReference",
+                                    value: { name: "user" },
+                                },
+                            },
+                        },
+                        path: ["name"],
                     },
                 } as Expression,
-                resolveParameter: () =>
-                    Promise.resolve("user-1"),
+                resolveParameter: () => Promise.resolve("user-1"),
                 context: {},
                 tx: createReadTx({ User: users }),
             })
@@ -91,7 +107,7 @@ describe("evaluateExpression", () => {
         await users.cleanup();
     });
 
-    it("returns an object-reference primary key without querying its collection", async () => {
+    it("returns an object-reference input without implicitly loading it", async () => {
         const query = () => {
             throw new Error("The object collection should not be queried.");
         };
@@ -101,16 +117,204 @@ describe("evaluateExpression", () => {
                 ir,
                 actionTypeName: "assign",
                 expression: {
-                    kind: "valueReference",
+                    kind: "inputReference",
                     value: {
-                        path: ["user", "id"],
+                        name: "user",
                     },
                 } as Expression,
-                resolveParameter: () =>
-                    Promise.resolve("user-1"),
+                resolveParameter: () => Promise.resolve("user-1"),
                 context: {},
                 tx: { query } as never,
             })
         ).resolves.toBe("user-1");
+    });
+
+    it("follows an explicit to-one link hop", async () => {
+        const projectType = {
+            name: "Project",
+            displayName: "Project",
+            pluralDisplayName: "Projects",
+            primaryKey: "id",
+            properties: [
+                {
+                    name: "id",
+                    displayName: "ID",
+                    type: o.string({}),
+                },
+                {
+                    name: "ownerId",
+                    displayName: "Owner",
+                    type: o.string({}),
+                },
+            ],
+        };
+        const linkIr: OntologyIR = {
+            ...ir,
+            objectTypes: [...ir.objectTypes, projectType],
+            linkTypes: [
+                {
+                    id: "projectOwner",
+                    source: {
+                        objectType: "Project",
+                        name: "projects",
+                        displayName: "Projects",
+                    },
+                    target: {
+                        objectType: "User",
+                        name: "owner",
+                        displayName: "Owner",
+                    },
+                    foreignKey: "ownerId",
+                    cardinality: "one",
+                },
+            ],
+            actionTypes: [
+                {
+                    ...ir.actionTypes[0]!,
+                    parameters: [
+                        ...ir.actionTypes[0]!.parameters,
+                        {
+                            name: "project",
+                            displayName: "Project",
+                            type: o.objectReference({
+                                objectType: "Project",
+                            }),
+                        },
+                    ],
+                },
+            ],
+        };
+        const users = createCollection(
+            localOnlyCollectionOptions<
+                OntologyObject,
+                string | number
+            >({
+                id: "link-hop-users",
+                getKey: (user) =>
+                    user.id as string | number,
+                initialData: [
+                    {
+                        id: "user-1",
+                        name: "Ada",
+                    },
+                ],
+            })
+        );
+        const projects = createCollection(
+            localOnlyCollectionOptions<
+                OntologyObject,
+                string | number
+            >({
+                id: "link-hop-projects",
+                getKey: (project) =>
+                    project.id as string | number,
+                initialData: [
+                    {
+                        id: "project-1",
+                        ownerId: "user-1",
+                    },
+                ],
+            })
+        );
+        await Promise.all([users.preload(), projects.preload()]);
+
+        await expect(
+            evaluateExpression({
+                ir: linkIr,
+                actionTypeName: "assign",
+                expression: o.Expression.getAt({
+                    source: o.Expression.linkHop({
+                        source: o.Expression.objectLookup({
+                            reference:
+                                o.Expression.inputReference({
+                                    name: "project",
+                                }),
+                        }),
+                        link: "owner",
+                    }),
+                    path: ["name"],
+                }),
+                resolveParameter: () =>
+                    Promise.resolve("project-1"),
+                context: {},
+                tx: createReadTx({
+                    User: users,
+                    Project: projects,
+                }),
+            })
+        ).resolves.toBe("Ada");
+
+        await Promise.all([
+            users.cleanup(),
+            projects.cleanup(),
+        ]);
+    });
+
+    it("maps list elements into constructed structs", async () => {
+        await expect(
+            evaluateExpression({
+                ir,
+                actionTypeName: "assign",
+                expression: o.Expression.map({
+                    source: o.Expression.inputReference({
+                        name: "entries",
+                    }),
+                    binding: "entry",
+                    body: o.Expression.struct({
+                        fields: [
+                            {
+                                name: "renamedCode",
+                                value: o.Expression.getAt({
+                                    source: o.Expression.localReference({
+                                        name: "entry",
+                                    }),
+                                    path: ["code"],
+                                }),
+                            },
+                            {
+                                name: "actor",
+                                value: o.Expression.contextReference({
+                                    name: "user",
+                                }),
+                            },
+                        ],
+                    }),
+                }),
+                resolveParameter: (name) =>
+                    Promise.resolve(name === "entries" ? [{ code: "alpha" }, { code: "beta" }] : undefined),
+                context: { user: "user-1" },
+                tx: createReadTx({}),
+            })
+        ).resolves.toEqual([
+            {
+                renamedCode: "alpha",
+                actor: "user-1",
+            },
+            {
+                renamedCode: "beta",
+                actor: "user-1",
+            },
+        ]);
+    });
+
+    it("preserves an undefined optional map source", async () => {
+        await expect(
+            evaluateExpression({
+                ir,
+                actionTypeName: "assign",
+                expression: o.Expression.map({
+                    source: o.Expression.inputReference({
+                        name: "entries",
+                    }),
+                    binding: "entry",
+                    body: o.Expression.localReference({
+                        name: "entry",
+                    }),
+                }),
+                resolveParameter: () => Promise.resolve(undefined),
+                context: {},
+                tx: createReadTx({}),
+            })
+        ).resolves.toBeUndefined();
     });
 });

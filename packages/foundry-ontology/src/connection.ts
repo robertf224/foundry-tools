@@ -54,6 +54,8 @@ const DEFAULT_SCOPES = [
     "api:use-ontologies-write",
     "api:use-mediasets-read",
     "api:use-mediasets-write",
+    "ontology:view-unredacted-action-type",
+    "ontology:view-object-type",
 ];
 
 type ConfidentialOauthClient = ReturnType<typeof createConfidentialOauthClient>;

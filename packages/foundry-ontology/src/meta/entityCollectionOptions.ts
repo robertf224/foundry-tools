@@ -102,7 +102,10 @@ async function loadFoundryMetaOntology(
     valueTypes: MetaValueType[];
     linkTypes: MetaLinkType[];
 }> {
-    const ontology = await OntologiesV2.getFullMetadata(client, client.ontologyRid);
+    const ontology = await OntologiesV2.getFullMetadata(
+        client,
+        client.ontologyRid
+    );
     const objectTypeMetadata = Object.values(ontology.objectTypes);
 
     const objectTypes = objectTypeMetadata.map((metadata) =>

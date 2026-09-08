@@ -257,8 +257,7 @@ export function createFoundryOntologyBackendAdapter(opts: {
                     const detailed = await MediaSets.metadata(
                         opts.client,
                         media.mediaSetRid,
-                        media.mediaItemRid,
-                        { preview: true }
+                        media.mediaItemRid
                     );
                     result.size = detailed.sizeBytes;
                     if (detailed.type === "imagery" && detailed.dimensions) {
@@ -454,7 +453,6 @@ export function createFoundryOntologyBackendAdapter(opts: {
                     );
                     const reference = await MediaSets.uploadMedia(opts.client, upload.blob, {
                         filename: getAttachmentName(upload.blob) ?? upload.attachment.id,
-                        preview: true,
                     });
                     mediaReferences.set(upload.attachment.id, reference);
                     attachmentIdMappings.push({
