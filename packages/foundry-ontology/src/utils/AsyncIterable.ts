@@ -9,6 +9,30 @@ export async function toArray<T>(asyncIterable: AsyncIterable<T>): Promise<T[]> 
     return result;
 }
 
+export async function* fromBatches<T, R>(
+    values: readonly T[],
+    getBatch: (batch: T[]) => Promise<readonly R[]>,
+    batchSize: number
+): AsyncIterable<R> {
+    if (!Number.isInteger(batchSize) || batchSize <= 0) {
+        throw new RangeError(
+            "Batch size must be a positive integer."
+        );
+    }
+    for (
+        let index = 0;
+        index < values.length;
+        index += batchSize
+    ) {
+        const results = await getBatch(
+            values.slice(index, index + batchSize)
+        );
+        for (const result of results) {
+            yield result;
+        }
+    }
+}
+
 export async function* fromPagination<C extends string | number, P, T>(
     getPage: (pageSize: number, pageToken?: C) => Promise<P>,
     getPageToken: (page: P) => C | undefined,
