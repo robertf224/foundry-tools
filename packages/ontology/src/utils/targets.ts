@@ -1,7 +1,7 @@
 import type { ActionTypeName, ObjectTypeName, QueryFunctionTypeName, TypeName } from "./typeNames.js";
 import type { OntologyIR } from "../ir/generated/types.js";
 
-// TODO: clean this up a bit when we have a better notion of paths
+// TODO: allow more nested targets
 
 export type OntologyTypeTarget<IR extends OntologyIR = OntologyIR> = {
     kind: "type";
