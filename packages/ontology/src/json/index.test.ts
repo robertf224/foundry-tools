@@ -26,6 +26,7 @@ const ir = {
                 { name: "id", displayName: "ID", type: o.string({}) },
                 { name: "createdAt", displayName: "Created At", type: o.timestamp({}) },
                 { name: "metadata", displayName: "Metadata", type: o.ref({ name: "Metadata" }) },
+                { name: "subtitle", displayName: "Subtitle", type: o.optional({ type: o.string({}) }) },
             ],
         },
     ],
@@ -36,6 +37,7 @@ const ir = {
             displayName: "Create post",
             parameters: [
                 { name: "metadata", displayName: "Metadata", type: o.ref({ name: "Metadata" }) },
+                { name: "subtitle", displayName: "Subtitle", type: o.optional({ type: o.string({}) }) },
             ],
             logic: [],
         },
@@ -45,7 +47,7 @@ const ir = {
             name: "getPost",
             displayName: "Get post",
             parameters: [{ name: "id", displayName: "ID", type: o.string({}) }],
-            returnType: o.ref({ name: "Metadata" }),
+            returnType: o.optional({ type: o.ref({ name: "Metadata" }) }),
         },
     ],
 } as const satisfies OntologyIR;
@@ -87,6 +89,24 @@ describe("ontology JSON codec", () => {
         });
 
         expect(decode({ ir, target: { kind: "object", name: "Post" }, value: encoded })).toEqual(object);
+    });
+
+    it("normalizes optional nulls on object reads while preserving action nulls", () => {
+        expect(
+            decode({
+                ir,
+                target: { kind: "object", name: "Post" },
+                value: { id: "post-1", subtitle: null },
+            })
+        ).toEqual({ id: "post-1", subtitle: undefined });
+
+        expect(
+            decode({
+                ir,
+                target: { kind: "actionParameters", actionType: "createPost" },
+                value: { subtitle: null },
+            })
+        ).toEqual({ subtitle: null });
     });
 
     it("encodes and decodes action and query function parameter objects by name", () => {
@@ -136,5 +156,12 @@ describe("ontology JSON codec", () => {
                 value: encoded,
             })
         ).toEqual(value);
+        expect(
+            decode({
+                ir,
+                target: { kind: "queryFunctionReturn", queryFunctionType: "getPost" },
+                value: null,
+            })
+        ).toBeUndefined();
     });
 });

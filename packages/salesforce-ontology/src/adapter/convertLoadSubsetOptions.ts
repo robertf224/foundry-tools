@@ -1,9 +1,4 @@
-import {
-    FieldPath,
-    LoadSubsetOptions,
-    parseOrderByExpression,
-    parseWhereExpression,
-} from "@tanstack/db";
+import { FieldPath, LoadSubsetOptions, parseOrderByExpression, parseWhereExpression } from "@tanstack/db";
 import { Temporal } from "temporal-polyfill";
 
 const ALWAYS_FALSE = "__ALWAYS_FALSE__";
@@ -96,14 +91,22 @@ export function convertLoadSubsetFilter(filter: LoadSubsetOptions["where"]): Com
                         ? `${fieldPathToSoql(field)} = null`
                         : `${fieldPathToSoql(field)} = ${serializeSoqlLiteral(value)}`,
                 gt: (field: FieldPath, value) =>
-                    value == null ? ALWAYS_FALSE : `${fieldPathToSoql(field)} > ${serializeSoqlLiteral(value)}`,
+                    value == null
+                        ? ALWAYS_FALSE
+                        : `${fieldPathToSoql(field)} > ${serializeSoqlLiteral(value)}`,
                 gte: (field: FieldPath, value) =>
-                    value == null ? ALWAYS_FALSE : `${fieldPathToSoql(field)} >= ${serializeSoqlLiteral(value)}`,
+                    value == null
+                        ? ALWAYS_FALSE
+                        : `${fieldPathToSoql(field)} >= ${serializeSoqlLiteral(value)}`,
                 lt: (field: FieldPath, value) =>
-                    value == null ? ALWAYS_FALSE : `${fieldPathToSoql(field)} < ${serializeSoqlLiteral(value)}`,
+                    value == null
+                        ? ALWAYS_FALSE
+                        : `${fieldPathToSoql(field)} < ${serializeSoqlLiteral(value)}`,
                 lte: (field: FieldPath, value) =>
-                    value == null ? ALWAYS_FALSE : `${fieldPathToSoql(field)} <= ${serializeSoqlLiteral(value)}`,
-                isNull: (field: FieldPath) => `${fieldPathToSoql(field)} = null`,
+                    value == null
+                        ? ALWAYS_FALSE
+                        : `${fieldPathToSoql(field)} <= ${serializeSoqlLiteral(value)}`,
+                isUndefined: (field: FieldPath) => `${fieldPathToSoql(field)} = null`,
                 in: (field: FieldPath, values: unknown[]) => {
                     const literals = values
                         .filter((entry) => entry !== null && entry !== undefined)
@@ -112,14 +115,10 @@ export function convertLoadSubsetFilter(filter: LoadSubsetOptions["where"]): Com
                     return `${fieldPathToSoql(field)} IN (${literals.join(", ")})`;
                 },
                 like: (field: FieldPath, value: string) =>
-                    value === "%"
-                        ? ""
-                        : `${fieldPathToSoql(field)} LIKE ${serializeSoqlLiteral(value)}`,
+                    value === "%" ? "" : `${fieldPathToSoql(field)} LIKE ${serializeSoqlLiteral(value)}`,
                 ilike: (field: FieldPath, value: string) =>
                     // Salesforce LIKE is case-insensitive for most text fields.
-                    value === "%"
-                        ? ""
-                        : `${fieldPathToSoql(field)} LIKE ${serializeSoqlLiteral(value)}`,
+                    value === "%" ? "" : `${fieldPathToSoql(field)} LIKE ${serializeSoqlLiteral(value)}`,
             },
         }) ?? undefined;
 

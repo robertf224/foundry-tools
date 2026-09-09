@@ -1,4 +1,14 @@
-import { compileSingleRowExpression, eq, gt, ilike, IR, like, lt, not } from "@tanstack/db";
+import {
+    compileSingleRowExpression,
+    eq,
+    gt,
+    ilike,
+    IR,
+    isUndefined,
+    like,
+    lt,
+    not,
+} from "@tanstack/db";
 import { Temporal } from "temporal-polyfill";
 import { describe, expect, it } from "vitest";
 import { convertLoadSubsetFilter, isAlwaysFalseFilter } from "./convertLoadSubsetOptions.js";
@@ -48,8 +58,28 @@ function evaluateFoundryTextPushdown(
 }
 
 describe("convertLoadSubsetFilter", () => {
-    it("converts null equality to an isNull filter", () => {
+    it("treats null equality as an empty result", () => {
         const filter = convertLoadSubsetFilter(eq(new IR.PropRef<Date | null>(["completedAt"]), null));
+
+        expect(isAlwaysFalseFilter(filter)).toBe(true);
+    });
+
+    it("converts undefined equality to a Foundry isNull filter", () => {
+        const filter = convertLoadSubsetFilter(
+            eq(new IR.PropRef<Date | undefined>(["completedAt"]), undefined)
+        );
+
+        expect(filter).toEqual({
+            type: "isNull",
+            propertyIdentifier: { type: "property", apiName: "completedAt" },
+            value: true,
+        });
+    });
+
+    it("converts isUndefined to a Foundry isNull filter", () => {
+        const filter = convertLoadSubsetFilter(
+            isUndefined(new IR.PropRef<Date | undefined>(["completedAt"]))
+        );
 
         expect(filter).toEqual({
             type: "isNull",
