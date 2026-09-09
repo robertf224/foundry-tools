@@ -1,5 +1,11 @@
 # @party-stack/ontology
 
+## 0.16.1
+
+### Patch Changes
+
+- c366eb9: fix foundry user loading, null handling, and object-set-watcher crashes
+
 ## 0.16.0
 
 ### Minor Changes

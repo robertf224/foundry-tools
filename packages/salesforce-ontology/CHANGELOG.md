@@ -1,5 +1,13 @@
 # @party-stack/salesforce-ontology
 
+## 0.1.6
+
+### Patch Changes
+
+- c366eb9: fix foundry user loading, null handling, and object-set-watcher crashes
+- Updated dependencies [c366eb9]
+    - @party-stack/ontology@0.16.1
+
 ## 0.1.5
 
 ### Patch Changes

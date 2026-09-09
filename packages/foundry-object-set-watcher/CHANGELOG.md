@@ -1,5 +1,11 @@
 # @party-stack/foundry-object-set-watcher
 
+## 0.5.1
+
+### Patch Changes
+
+- c366eb9: fix foundry user loading, null handling, and object-set-watcher crashes
+
 ## 0.5.0
 
 ### Minor Changes
