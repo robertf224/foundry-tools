@@ -2,11 +2,12 @@ import type {
     RemoteApplyActionResponse,
     RemoteAttachmentMetadataRequest,
     RemoteAttachmentRequest,
+    RemoteResolveActionParametersResponse,
     RemoteRunQueryFunctionResponse,
     RemoteLoadSubsetResponse,
     RemoteOntologyDescription,
-    RemoteOntologyTransport,
     RemoteOntologyTransportOptions,
+    ResolvableRemoteOntologyTransport,
 } from "./protocol.js";
 import type {
     OntologyIR,
@@ -18,12 +19,18 @@ import type { Result } from "@party-stack/ontology/values";
 import { decode, encode } from "@party-stack/ontology/json";
 import { parseRemoteOntologyErrorBody } from "./errors.js";
 import { parseRemoteOntologyJson, serializeRemoteOntologyJson } from "./protocol.js";
+import type { RemoteOntologyServer } from "./server.js";
 
 export interface HttpRemoteOntologyTransportOptions {
     url: string | URL;
     ir?: OntologyIR;
     fetch?: typeof fetch;
     headers?: HeadersInit | (() => HeadersInit);
+}
+
+export interface InProcessHttpRemoteOntologyTransportOptions {
+    headers?: HeadersInit | (() => HeadersInit);
+    ir?: OntologyIR;
 }
 
 function resolveEndpoint(baseUrl: string | URL, path: string): string {
@@ -115,11 +122,12 @@ async function postBlob(
 
 export function createHttpRemoteOntologyTransport(
     opts: HttpRemoteOntologyTransportOptions
-): RemoteOntologyTransport {
+): ResolvableRemoteOntologyTransport {
     const fetchImpl = opts.fetch ?? globalThis.fetch;
     const getHeaders = () => (typeof opts.headers === "function" ? opts.headers() : opts.headers);
     let ir = opts.ir;
     let actionValidationSupported: boolean | undefined;
+    let actionParameterResolutionSupported: boolean | undefined;
     const getIr = () => {
         if (!ir) {
             throw new Error(
@@ -141,6 +149,8 @@ export function createHttpRemoteOntologyTransport(
             ir = description.ir;
             actionValidationSupported =
                 description.capabilities?.actionValidation === true;
+            actionParameterResolutionSupported =
+                description.capabilities?.actionParameterResolution === true;
             return description;
         },
         loadSubset: async (request, options) => {
@@ -212,6 +222,35 @@ export function createHttpRemoteOntologyTransport(
                 options
             );
         },
+        resolveActionParameters: async (request, options) => {
+            if (actionParameterResolutionSupported === false) {
+                throw new Error(
+                    "Remote ontology server does not support action parameter resolution."
+                );
+            }
+            const ontology = getIr();
+            const response = await postJson<RemoteResolveActionParametersResponse>(
+                fetchImpl,
+                resolveEndpoint(opts.url, "resolve-action-parameters"),
+                {
+                    ...request,
+                    parameters: encode({
+                        ir: ontology,
+                        target: { kind: "actionParameters", actionType: request.actionType },
+                        value: request.parameters,
+                    }) as Record<string, unknown>,
+                },
+                getHeaders(),
+                options
+            );
+            return {
+                parameters: decode({
+                    ir: ontology,
+                    target: { kind: "actionParameters", actionType: request.actionType },
+                    value: response.parameters,
+                }) as Record<string, unknown>,
+            };
+        },
         runQueryFunction: async (request, options) => {
             const ontology = getIr();
             const response = await postJson<RemoteRunQueryFunctionResponse>(
@@ -257,4 +296,16 @@ export function createHttpRemoteOntologyTransport(
                 options
             ),
     };
+}
+
+export function createInProcessHttpRemoteOntologyTransport(
+    server: RemoteOntologyServer,
+    opts: InProcessHttpRemoteOntologyTransportOptions = {}
+): ResolvableRemoteOntologyTransport {
+    return createHttpRemoteOntologyTransport({
+        ...opts,
+        url: "http://remote-ontology.in-process/",
+        fetch: (input, init) =>
+            server.handleRequest(new Request(input, init)),
+    });
 }

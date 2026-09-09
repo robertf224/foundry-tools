@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { Temporal } from "temporal-polyfill";
-import { o, type OntologyIR } from "@party-stack/ontology";
+import {
+    o,
+    type OntologyBackendAdapter,
+    type OntologyIR,
+} from "@party-stack/ontology";
 import { eq, gt, IR } from "@tanstack/db";
-import { createHttpRemoteOntologyTransport } from "./http.js";
+import {
+    createHttpRemoteOntologyTransport,
+    createInProcessHttpRemoteOntologyTransport,
+} from "./http.js";
 import { parseRemoteOntologyRequest, serializeLoadSubsetOptions } from "./protocol.js";
+import { createRemoteOntologyServer } from "./server.js";
 
 describe("createHttpRemoteOntologyTransport", () => {
     it("serializes and hydrates typed ontology values", async () => {
@@ -177,6 +185,101 @@ describe("createHttpRemoteOntologyTransport", () => {
                 },
                 offset: 2,
                 limit: 3,
+            },
+        });
+    });
+});
+
+describe("createInProcessHttpRemoteOntologyTransport", () => {
+    it("routes requests through the HTTP server adapter", async () => {
+        const ir: OntologyIR = {
+            types: [],
+            objectTypes: [],
+            linkTypes: [],
+            actionTypes: [
+                {
+                    name: "createNote",
+                    displayName: "Create note",
+                    parameters: [
+                        {
+                            name: "title",
+                            displayName: "Title",
+                            type: o.string({}),
+                        },
+                        {
+                            name: "ownerEmail",
+                            displayName: "Owner",
+                            type: o.string({}),
+                        },
+                    ],
+                    logic: [],
+                },
+            ],
+            queryFunctionTypes: [],
+        };
+        const server = createRemoteOntologyServer<
+            any,
+            any
+        >({
+            ir,
+            backendAdapter: {
+                name: "test",
+                getCollectionOptions:
+                    (): ReturnType<
+                        OntologyBackendAdapter["getCollectionOptions"]
+                    > => ({
+                        syncMode: "eager",
+                        sync: {
+                            sync: ({
+                                markReady,
+                            }) => {
+                                markReady();
+                            },
+                        },
+                    }),
+                applyAction: async () => {},
+                runQueryFunction: async () =>
+                    undefined,
+            },
+            getContext: () => ({
+                user: {
+                    email: "alice@example.com",
+                },
+            }),
+            policy: {
+                fixedActionParameterValues: {
+                    createNote: {
+                        ownerEmail:
+                            o.Expression.getAt({
+                                source: o.Expression.contextReference(
+                                    {
+                                        name: "user",
+                                    }
+                                ),
+                                path: ["email"],
+                            }),
+                    },
+                },
+            },
+        });
+        const transport =
+            createInProcessHttpRemoteOntologyTransport(
+                server
+            );
+
+        await transport.describe();
+        await expect(
+            transport.resolveActionParameters({
+                actionType: "createNote",
+                parameters: {
+                    title: "Hello",
+                    ownerEmail:
+                        "mallory@example.com",
+                },
+            })
+        ).resolves.toEqual({
+            parameters: {
+                title: "Hello",
             },
         });
     });

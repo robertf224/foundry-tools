@@ -1,4 +1,7 @@
-export type { RemoteOntologyTransport } from "./protocol.js";
+export type {
+    RemoteOntologyTransport,
+    ResolvableRemoteOntologyTransport,
+} from "./protocol.js";
 export {
     RemoteOntologyError,
     parseRemoteOntologyErrorBody,

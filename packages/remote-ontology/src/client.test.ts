@@ -56,10 +56,16 @@ describe("createRemoteLiveOntology", () => {
     it("uses describe to construct a live ontology with projected context", async () => {
         let appliedParameters: Record<string, unknown> | undefined;
         let validatedParameters: Record<string, unknown> | undefined;
+        let resolutionRequest:
+            | Record<string, unknown>
+            | undefined;
         const transport: RemoteOntologyTransport = {
             describe: async () => ({
                 ir,
                 context: { user: { email: "alice@example.com" } },
+                capabilities: {
+                    actionParameterResolution: true,
+                },
             }),
             loadSubset: async (request) => ({
                 objectType: request.objectType,
@@ -79,6 +85,16 @@ describe("createRemoteLiveOntology", () => {
                     },
                 };
             },
+            resolveActionParameters: async (request) => {
+                resolutionRequest = request.parameters;
+                return {
+                    parameters: {
+                        ...request.parameters,
+                        ownerEmail:
+                            "resolved@example.com",
+                    },
+                };
+            },
             runQueryFunction: async (request) => ({
                 value: `Hello ${request.parameters.name}`,
             }),
@@ -92,6 +108,31 @@ describe("createRemoteLiveOntology", () => {
         };
 
         const ontology = await createRemoteLiveOntology({ transport });
+        await expect(
+            ontology.actions.createNote!.resolveParameters(
+                {
+                    title: "Hello",
+                    dueDate:
+                        Temporal.PlainDate.from(
+                            "2026-06-15"
+                        ),
+                }
+            )
+        ).resolves.toEqual({
+            title: "Hello",
+            ownerEmail: "resolved@example.com",
+            dueDate: Temporal.PlainDate.from(
+                "2026-06-15"
+            ),
+        });
+        expect(resolutionRequest).toEqual({
+            title: "Hello",
+            dueDate: Temporal.PlainDate.from(
+                "2026-06-15"
+            ),
+        });
+        resolutionRequest = undefined;
+
         await ontology.actions.createNote!({
             title: "Hello",
             dueDate: Temporal.PlainDate.from("2026-06-15"),
@@ -102,6 +143,7 @@ describe("createRemoteLiveOntology", () => {
             ownerEmail: "alice@example.com",
             dueDate: Temporal.PlainDate.from("2026-06-15"),
         });
+        expect(resolutionRequest).toBeUndefined();
         await expect(
             ontology.actions.createNote!.validate({
                 title: "Hello",
@@ -146,6 +188,9 @@ describe("createRemoteOntologyBackendAdapter.applyAction", () => {
             }),
             validateAction: async () => ({
                 certain: false,
+            }),
+            resolveActionParameters: async () => ({
+                parameters: {},
             }),
             runQueryFunction: async () => ({ value: undefined }),
             getAttachmentMetadata: async () => ({}),
@@ -213,6 +258,9 @@ describe("createRemoteOntologyBackendAdapter.applyAction", () => {
                         kind: "ok",
                         value: null,
                     },
+                }),
+                resolveActionParameters: async () => ({
+                    parameters: {},
                 }),
                 runQueryFunction: async () => ({ value: undefined }),
                 getAttachmentMetadata: async () => ({}),

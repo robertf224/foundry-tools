@@ -6,6 +6,7 @@ import { createLiveOntology } from "@party-stack/ontology";
 import type {
     CreateLiveOntologyOpts,
     LiveOntology,
+    LiveOntologyAction,
     OntologyDefinition,
     OntologyBackendAdapter,
     OntologyBackendAdapterProvider,
@@ -206,7 +207,12 @@ export async function createRemoteLiveOntology<
     const backend = createRemoteOntologyBackend<Context>({
         transport: opts.transport,
     });
-    return createLiveOntology<Ontology, Context>({
+    const resolveActionParameters =
+        opts.transport.resolveActionParameters;
+    const ontology = await createLiveOntology<
+        Ontology,
+        Context
+    >({
         ir: description.ir,
         backend,
         id: opts.id,
@@ -215,4 +221,31 @@ export async function createRemoteLiveOntology<
         writes: opts.writes,
         context: (description.context ?? {}) as Context,
     });
+    if (
+        description.capabilities
+            ?.actionParameterResolution === true &&
+        resolveActionParameters
+    ) {
+        for (const actionType of description.ir
+            .actionTypes) {
+            const action =
+                (
+                    ontology.actions as Record<
+                        string,
+                        LiveOntologyAction
+                    >
+                )[actionType.name];
+            if (!action) continue;
+            action.resolveParameters = async (
+                parameters
+            ) =>
+                (
+                    await resolveActionParameters({
+                        actionType: actionType.name,
+                        parameters,
+                    })
+                ).parameters;
+        }
+    }
+    return ontology;
 }
