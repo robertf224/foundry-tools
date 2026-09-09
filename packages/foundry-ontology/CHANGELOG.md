@@ -1,5 +1,14 @@
 # @party-stack/foundry-ontology
 
+## 0.14.3
+
+### Patch Changes
+
+- c366eb9: fix foundry user loading, null handling, and object-set-watcher crashes
+- Updated dependencies [c366eb9]
+    - @party-stack/foundry-object-set-watcher@0.5.1
+    - @party-stack/ontology@0.16.1
+
 ## 0.14.2
 
 ### Patch Changes
