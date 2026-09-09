@@ -63,9 +63,17 @@ function resolveTargetType<IR extends OntologyIR>(ir: IR, target: JsonTarget<IR>
     }
 }
 
-function decodeValue(ir: OntologyIR, type: TypeDef, value: unknown): unknown {
-    if (value === undefined || value === null) return value;
+function decodeValue(
+    ir: OntologyIR,
+    type: TypeDef,
+    value: unknown,
+    normalizeOptionalNull = false
+): unknown {
     const resolvedType = resolveType(ir, type);
+    if (value === undefined) return undefined;
+    if (value === null) {
+        return normalizeOptionalNull && resolvedType.kind === "optional" ? undefined : null;
+    }
 
     switch (resolvedType.kind) {
         case "timestamp":
@@ -73,16 +81,18 @@ function decodeValue(ir: OntologyIR, type: TypeDef, value: unknown): unknown {
         case "date":
             return typeof value === "string" ? Temporal.PlainDate.from(value) : value;
         case "optional":
-            return decodeValue(ir, resolvedType.value.type, value);
+            return decodeValue(ir, resolvedType.value.type, value, normalizeOptionalNull);
         case "list":
             assertArray(value);
-            return value.map((item) => decodeValue(ir, resolvedType.value.elementType, item));
+            return value.map((item) =>
+                decodeValue(ir, resolvedType.value.elementType, item, normalizeOptionalNull)
+            );
         case "map":
             assertRecord(value);
             return Object.fromEntries(
                 Object.entries(value).map(([key, entry]) => [
                     key,
-                    decodeValue(ir, resolvedType.value.valueType, entry),
+                    decodeValue(ir, resolvedType.value.valueType, entry, normalizeOptionalNull),
                 ])
             );
         case "struct":
@@ -90,7 +100,12 @@ function decodeValue(ir: OntologyIR, type: TypeDef, value: unknown): unknown {
             return Object.fromEntries(
                 Object.entries(value).map(([key, entry]) => {
                     const field = resolvedType.value.fields.find((candidate) => candidate.name === key);
-                    return [key, field ? decodeValue(ir, field.type, entry) : entry];
+                    return [
+                        key,
+                        field
+                            ? decodeValue(ir, field.type, entry, normalizeOptionalNull)
+                            : entry,
+                    ];
                 })
             );
         default:
@@ -144,7 +159,7 @@ function decodeObject(ir: OntologyIR, objectTypeName: string, value: unknown): O
     return Object.fromEntries(
         Object.entries(value).map(([key, entry]) => {
             const property = objectType.properties.find((candidate) => candidate.name === key);
-            return [key, property ? decodeValue(ir, property.type, entry) : entry];
+            return [key, property ? decodeValue(ir, property.type, entry, true) : entry];
         })
     );
 }
@@ -202,7 +217,12 @@ export function decode<IR extends OntologyIR>(opts: {
     if (opts.target.kind === "queryFunctionParameters") {
         return decodeParameters(opts.ir, getQueryFunctionType(opts.ir, opts.target.queryFunctionType).parameters, opts.value);
     }
-    return decodeValue(opts.ir, resolveTargetType(opts.ir, opts.target)!, opts.value);
+    return decodeValue(
+        opts.ir,
+        resolveTargetType(opts.ir, opts.target)!,
+        opts.value,
+        opts.target.kind === "queryFunctionReturn"
+    );
 }
 
 export function encode<IR extends OntologyIR>(opts: {
