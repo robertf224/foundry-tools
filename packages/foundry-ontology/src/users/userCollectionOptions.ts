@@ -1,15 +1,6 @@
 import { User, Users } from "@osdk/foundry.admin";
-import {
-    applyLensToObject,
-    mapTargetPathToSourceWithLens,
-    type Lens,
-} from "@party-stack/ontology";
-import {
-    FieldPath,
-    LoadSubsetOptions,
-    parseOrderByExpression,
-    parseWhereExpression,
-} from "@tanstack/db";
+import { applyLensToObject, mapTargetPathToSourceWithLens, type Lens } from "@party-stack/ontology";
+import { FieldPath, LoadSubsetOptions, parseOrderByExpression, parseWhereExpression } from "@tanstack/db";
 import { QueryClient } from "@tanstack/query-core";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import type { Client } from "@party-stack/foundry-client";
@@ -58,9 +49,7 @@ export function userCollectionOptions({ client, lens }: UserCollectionOpts) {
                         )
                     )
                 );
-                return results
-                    .flatMap((result) => Object.values(result.data))
-                    .map(project);
+                return results.flatMap((result) => Object.values(result.data)).map(project);
             }
 
             const queryString = query.type === "search" ? query.query : "";
@@ -96,7 +85,7 @@ export function userCollectionOptions({ client, lens }: UserCollectionOpts) {
     });
 }
 
-function convertQuery(options: LoadSubsetOptions | undefined, lens: Lens): UsersQuery {
+export function convertQuery(options: LoadSubsetOptions | undefined, lens: Lens): UsersQuery {
     if (!options) {
         return { type: "list" };
     }
@@ -129,12 +118,25 @@ function convertQuery(options: LoadSubsetOptions | undefined, lens: Lens): Users
     const maybeSearchQuery =
         parseWhereExpression<UsersQuery | undefined>(options.where, {
             handlers: {
-                like: (field: FieldPath, value: string) =>
-                    getLikeQuery(rewriteFieldPath(field, lens), value),
+                or: (...queries: (UsersQuery | undefined)[]) => {
+                    if (
+                        queries.length > 0 &&
+                        queries.every(
+                            (query): query is Extract<UsersQuery, { type: "search" }> =>
+                                query?.type === "search"
+                        ) &&
+                        queries.every((query) => query.query === queries[0]!.query)
+                    ) {
+                        // Foundry's user search applies one query across the supported name fields,
+                        // so ORs over those fields can share one server-side search when their terms match.
+                        return queries[0];
+                    }
+                },
+                like: (field: FieldPath, value: string) => getLikeQuery(rewriteFieldPath(field, lens), value),
                 ilike: (field: FieldPath, value: string) =>
                     getLikeQuery(rewriteFieldPath(field, lens), value),
-                onUnknownOperator: () => undefined,
             },
+            onUnknownOperator: () => undefined,
         }) ?? undefined;
     if (maybeSearchQuery) {
         return maybeSearchQuery;

@@ -1,6 +1,5 @@
 /* eslint-disable require-yield */
 /* eslint-disable react-hooks/rules-of-hooks */
-import { invariant } from "@bobbyfidz/panic";
 import { Pathnames, Urls } from "@bobbyfidz/urls";
 import { map } from "@effectionx/stream-helpers";
 import { useWebSocket } from "@effectionx/websocket";
@@ -68,6 +67,42 @@ function filterChangeMessages(updates: ObjectSetUpdate[]): ObjectSetUpdate[] {
         }
     }
     return filteredUpdates;
+}
+
+export function convertSubscriptionMessage(
+    message: StreamMessage,
+    externalSubscriptionIdsToInternal: ReadonlyMap<string, string> | undefined
+): ObjectSetSubscriptionsMessage | undefined {
+    switch (message.type) {
+        case "objectSetChanged": {
+            const subscriptionId = externalSubscriptionIdsToInternal?.get(message.id);
+            if (!subscriptionId) return undefined;
+            return {
+                type: "change",
+                subscriptionId,
+                updates: filterChangeMessages(message.updates),
+            };
+        }
+        case "refreshObjectSet": {
+            const subscriptionId = externalSubscriptionIdsToInternal?.get(message.id);
+            if (!subscriptionId) return undefined;
+            return {
+                type: "refresh",
+                subscriptionId,
+                objectType: message.objectType,
+            };
+        }
+        case "subscriptionClosed": {
+            const subscriptionId = externalSubscriptionIdsToInternal?.get(message.id);
+            if (!subscriptionId) return undefined;
+            return {
+                type: "state",
+                updates: [{ subscriptionId, status: "closed" }],
+            };
+        }
+        default:
+            return undefined;
+    }
 }
 
 /**
@@ -184,44 +219,12 @@ export function useObjectSetWatcherConnection(
                     break;
                 }
                 const message = nextMessage.value;
-                switch (message.type) {
-                    case "objectSetChanged": {
-                        const subscriptionId = externalSubscriptionIdsToInternal?.get(message.id);
-                        invariant(
-                            subscriptionId,
-                            "Subscription id could not be found, this should never happen."
-                        );
-                        yield* subscriptionMessages.send({
-                            type: "change",
-                            subscriptionId,
-                            updates: filterChangeMessages(message.updates),
-                        });
-                        break;
-                    }
-                    case "refreshObjectSet": {
-                        const subscriptionId = externalSubscriptionIdsToInternal?.get(message.id);
-                        invariant(
-                            subscriptionId,
-                            "Subscription id could not be found, this should never happen."
-                        );
-                        yield* subscriptionMessages.send({
-                            type: "refresh",
-                            subscriptionId,
-                            objectType: message.objectType,
-                        });
-                        break;
-                    }
-                    case "subscriptionClosed": {
-                        const subscriptionId = externalSubscriptionIdsToInternal?.get(message.id);
-                        invariant(
-                            subscriptionId,
-                            "Subscription id could not be found, this should never happen."
-                        );
-                        yield* subscriptionMessages.send({
-                            type: "state",
-                            updates: [{ subscriptionId, status: "closed" }],
-                        });
-                    }
+                const subscriptionMessage = convertSubscriptionMessage(
+                    message,
+                    externalSubscriptionIdsToInternal
+                );
+                if (subscriptionMessage) {
+                    yield* subscriptionMessages.send(subscriptionMessage);
                 }
             }
         }));

@@ -11,10 +11,7 @@ import { Temporal } from "temporal-polyfill";
 const ALWAYS_FALSE_FILTER: SearchJsonQueryV2 = { type: "or", value: [] };
 const ALWAYS_TRUE_FILTER: SearchJsonQueryV2 = { type: "and", value: [] };
 
-type LikePatternPart =
-    | { type: "literal"; value: string }
-    | { type: "many" }
-    | { type: "single" };
+type LikePatternPart = { type: "literal"; value: string } | { type: "many" } | { type: "single" };
 
 interface PushdownFilter {
     query: SearchJsonQueryV2;
@@ -107,9 +104,7 @@ function convertLikeFilter(field: FieldPath, value: string): PushdownFilter {
     });
 }
 
-function convertQueryValue(
-    value: unknown
-): unknown {
+function convertQueryValue(value: unknown): unknown {
     if (value instanceof Date) {
         return value.toISOString();
     }
@@ -163,18 +158,19 @@ export function convertLoadSubsetFilter(filter: LoadSubsetOptions["where"]): Sea
                         : pushdown(ALWAYS_TRUE_FILTER, false),
                 eq: (field: FieldPath, value) =>
                     pushdown(
-                        value == null
-                            ? {
-                                  type: "isNull",
-                                  propertyIdentifier: fieldPathToPropertyIdentifier(field),
-                                  value: true,
-                              }
-                            : {
-                                  type: "eq",
-                                  propertyIdentifier: fieldPathToPropertyIdentifier(field),
-                                  value:
-                                      convertQueryValue(value),
-                              }
+                        value === null
+                            ? ALWAYS_FALSE_FILTER
+                            : value === undefined
+                              ? {
+                                    type: "isNull",
+                                    propertyIdentifier: fieldPathToPropertyIdentifier(field),
+                                    value: true,
+                                }
+                              : {
+                                    type: "eq",
+                                    propertyIdentifier: fieldPathToPropertyIdentifier(field),
+                                    value: convertQueryValue(value),
+                                }
                     ),
                 gt: (field: FieldPath, value) =>
                     pushdown(
@@ -183,8 +179,7 @@ export function convertLoadSubsetFilter(filter: LoadSubsetOptions["where"]): Sea
                             : {
                                   type: "gt",
                                   propertyIdentifier: fieldPathToPropertyIdentifier(field),
-                                  value:
-                                      convertQueryValue(value),
+                                  value: convertQueryValue(value),
                               }
                     ),
                 gte: (field: FieldPath, value) =>
@@ -194,8 +189,7 @@ export function convertLoadSubsetFilter(filter: LoadSubsetOptions["where"]): Sea
                             : {
                                   type: "gte",
                                   propertyIdentifier: fieldPathToPropertyIdentifier(field),
-                                  value:
-                                      convertQueryValue(value),
+                                  value: convertQueryValue(value),
                               }
                     ),
                 lt: (field: FieldPath, value) =>
@@ -205,8 +199,7 @@ export function convertLoadSubsetFilter(filter: LoadSubsetOptions["where"]): Sea
                             : {
                                   type: "lt",
                                   propertyIdentifier: fieldPathToPropertyIdentifier(field),
-                                  value:
-                                      convertQueryValue(value),
+                                  value: convertQueryValue(value),
                               }
                     ),
                 lte: (field: FieldPath, value) =>
@@ -216,11 +209,10 @@ export function convertLoadSubsetFilter(filter: LoadSubsetOptions["where"]): Sea
                             : {
                                   type: "lte",
                                   propertyIdentifier: fieldPathToPropertyIdentifier(field),
-                                  value:
-                                      convertQueryValue(value),
+                                  value: convertQueryValue(value),
                               }
                     ),
-                isNull: (field: FieldPath) => ({
+                isUndefined: (field: FieldPath) => ({
                     query: {
                         type: "isNull",
                         propertyIdentifier: fieldPathToPropertyIdentifier(field),
@@ -233,11 +225,7 @@ export function convertLoadSubsetFilter(filter: LoadSubsetOptions["where"]): Sea
                         type: "in",
                         propertyIdentifier: fieldPathToPropertyIdentifier(field),
                         value: value
-                            .filter(
-                                (entry) =>
-                                    entry !== null &&
-                                    entry !== undefined
-                            )
+                            .filter((entry) => entry !== null && entry !== undefined)
                             .map(convertQueryValue),
                     }),
                 ilike: convertLikeFilter,
