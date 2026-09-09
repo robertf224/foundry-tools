@@ -185,6 +185,41 @@ function isActionParameterFixed<Context>(
     );
 }
 
+export function getVisibleActionParameterNames(
+    actionTypeName: string,
+    parameters: ReadonlyArray<{ name: string }>,
+    fixedActionParameterValues?: FixedActionParameterValues
+): Set<string> {
+    return new Set(
+        parameters
+            .filter(
+                (parameter) =>
+                    !isActionParameterFixed(
+                        fixedActionParameterValues,
+                        actionTypeName,
+                        parameter.name
+                    )
+            )
+            .map((parameter) => parameter.name)
+    );
+}
+
+export function pickVisibleActionParameters(
+    actionTypeName: string,
+    allParameters: Record<string, unknown>,
+    fixedActionParameterValues?: FixedActionParameterValues,
+    parameters?: ReadonlyArray<{ name: string }>
+): Record<string, unknown> {
+    const visibleParameterNames = getVisibleActionParameterNames(
+        actionTypeName,
+        parameters ?? Object.keys(allParameters).map((name) => ({ name })),
+        fixedActionParameterValues
+    );
+    return Object.fromEntries(
+        Object.entries(allParameters).filter(([name]) => visibleParameterNames.has(name))
+    );
+}
+
 function getExpressionObjectType(
     ir: OntologyIR,
     actionName: string,
@@ -254,6 +289,7 @@ function projectExpression<Context>(opts: {
     visibleParameters: Set<string>;
     fixedActionParameterValues: FixedActionParameterValues | undefined;
     allowedObjectTypeProperties: Record<string, readonly string[]>;
+    projectFixedParameterValues: boolean;
 }): Expression | undefined {
     switch (opts.expression.kind) {
         case "contextReference":
@@ -375,6 +411,9 @@ function projectExpression<Context>(opts: {
             if (opts.visibleParameters.has(parameterName)) {
                 return opts.expression;
             }
+            if (!opts.projectFixedParameterValues) {
+                return undefined;
+            }
             const fixedValue = getFixedActionParameterValues(
                 opts.fixedActionParameterValues,
                 opts.actionName
@@ -420,6 +459,7 @@ function projectAssignments<Context>(opts: {
             visibleParameters: opts.visibleParameters,
             fixedActionParameterValues: opts.fixedActionParameterValues,
             allowedObjectTypeProperties: opts.allowedObjectTypeProperties,
+            projectFixedParameterValues: true,
         });
         return projectedValue ? [{ ...assignment, value: projectedValue }] : [];
     });
@@ -598,6 +638,7 @@ export function projectRemoteOntologyIR<
     clientContext?: Record<string, unknown>;
     clientContextMode?: ClientContextProjectionMode;
     fixedActionParameterValues?: FixedActionParameterValues<Ontology>;
+    projectFixedActionParameterValuesInDefaults?: boolean;
     allowedObjectTypeProperties: Record<string, readonly string[]>;
     /**
      * Projects object/property/link/action/query visibility from the resolved
@@ -659,17 +700,10 @@ export function projectRemoteOntologyIR<
                 !actionParametersReferenceHiddenObjectType(actionType, opts.ir, visibleObjectTypes)
         )
         .map((actionType) => {
-            const visibleParameters = new Set(
-                actionType.parameters
-                    .filter(
-                        (parameter) =>
-                            !isActionParameterFixed(
-                                opts.fixedActionParameterValues,
-                                actionType.name,
-                                parameter.name
-                            )
-                    )
-                    .map((parameter) => parameter.name)
+            const visibleParameters = getVisibleActionParameterNames(
+                actionType.name,
+                actionType.parameters,
+                opts.fixedActionParameterValues
             );
             return {
                 ...actionType,
@@ -688,6 +722,9 @@ export function projectRemoteOntologyIR<
                                   visibleParameters,
                                   fixedActionParameterValues: opts.fixedActionParameterValues,
                                   allowedObjectTypeProperties: opts.allowedObjectTypeProperties,
+                                  projectFixedParameterValues:
+                                      opts.projectFixedActionParameterValuesInDefaults ??
+                                      false,
                               })
                             : undefined,
                     })),

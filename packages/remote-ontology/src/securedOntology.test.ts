@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { o, type OntologyIR } from "@party-stack/ontology";
-import { applyFixedActionParameterValues, projectRemoteOntologyIR } from "./securedOntology.js";
+import { applyFixedActionParameterValues, getVisibleActionParameterNames, pickVisibleActionParameters, projectRemoteOntologyIR } from "./securedOntology.js";
 
 function contextEmail() {
     return o.Expression.getAt({
@@ -446,6 +446,44 @@ describe("secured ontology projection", () => {
         });
     });
 
+});
+
+describe("visible action parameter helpers", () => {
+    it("derives visible parameter names from fixed parameter policy", () => {
+        const action = ir.actionTypes[0]!;
+        expect(
+            [...getVisibleActionParameterNames("createNote", action.parameters, {
+                createNote: {
+                    ownerEmail: contextEmail(),
+                },
+            })]
+        ).toEqual(["id", "title", "updatedAt"]);
+    });
+
+    it("filters resolved parameters to visible names only", () => {
+        const action = ir.actionTypes[0]!;
+        expect(
+            pickVisibleActionParameters(
+                "createNote",
+                {
+                    id: "note-1",
+                    title: "Hello",
+                    ownerEmail: "alice@example.com",
+                    updatedAt: "2026-05-28T22:11:00.000Z",
+                },
+                {
+                    createNote: {
+                        ownerEmail: contextEmail(),
+                    },
+                },
+                action.parameters
+            )
+        ).toEqual({
+            id: "note-1",
+            title: "Hello",
+            updatedAt: "2026-05-28T22:11:00.000Z",
+        });
+    });
 });
 
 describe("fixed action parameter values", () => {

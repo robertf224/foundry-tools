@@ -134,6 +134,7 @@ describe("remote ontology server policy projection", () => {
         const description = parseRemoteOntologyJson(await describeResponse.text()) as RemoteOntologyDescription;
         expect(description.capabilities).toEqual({
             actionValidation: true,
+            actionParameterResolution: true,
         });
         expect(description.ir.actionTypes[0]!.parameters.map((parameter) => parameter.name)).toEqual([
             "title",
@@ -185,6 +186,211 @@ describe("remote ontology server policy projection", () => {
             title: "Hello",
             ownerEmail: "alice@example.com",
             dueDate: Temporal.PlainDate.from("2026-06-15"),
+        });
+
+        const resolveResponse = await server.handleRequest(
+            new Request("http://example.test/resolve-action-parameters", {
+                method: "POST",
+                body: serializeRemoteOntologyJson({
+                    actionType: "createNote",
+                    parameters: {
+                        title: "Hello",
+                        ownerEmail: "mallory@example.com",
+                    },
+                }),
+            })
+        );
+        expect(resolveResponse.status).toBe(200);
+        expect(parseRemoteOntologyJson(await resolveResponse.text())).toEqual({
+            parameters: {
+                title: "Hello",
+            },
+        });
+    });
+
+    it("resolves defaults from fixed object references without exposing blocked properties", async () => {
+        const employeeReference =
+            o.Expression.inputReference({
+                name: "employee",
+            });
+        const employeeObject =
+            o.Expression.objectLookup({
+                reference: employeeReference,
+            });
+        const securedIr: OntologyIR = {
+            ...ir,
+            objectTypes: [
+                {
+                    name: "Employee",
+                    displayName: "Employee",
+                    pluralDisplayName: "Employees",
+                    primaryKey: "id",
+                    properties: [
+                        {
+                            name: "id",
+                            displayName: "ID",
+                            type: o.string({}),
+                        },
+                        {
+                            name: "title",
+                            displayName: "Title",
+                            type: o.string({}),
+                        },
+                        {
+                            name: "secret",
+                            displayName: "Secret",
+                            type: o.string({}),
+                        },
+                    ],
+                },
+            ],
+            actionTypes: [
+                {
+                    name: "editEmployee",
+                    displayName: "Edit employee",
+                    parameters: [
+                        {
+                            name: "employee",
+                            displayName: "Employee",
+                            type: o.objectReference({
+                                objectType: "Employee",
+                            }),
+                        },
+                        {
+                            name: "title",
+                            displayName: "Title",
+                            type: o.string({}),
+                            defaultValue:
+                                o.Expression.getAt({
+                                    source: employeeObject,
+                                    path: ["title"],
+                                }),
+                        },
+                        {
+                            name: "secret",
+                            displayName: "Secret",
+                            type: o.string({}),
+                            defaultValue:
+                                o.Expression.getAt({
+                                    source: employeeObject,
+                                    path: ["secret"],
+                                }),
+                        },
+                    ],
+                    logic: [],
+                },
+            ],
+        };
+        const server = createRemoteOntologyServer<
+            any,
+            any
+        >({
+            ir: securedIr,
+            backendAdapter: {
+                name: "test",
+                getCollectionOptions: () => ({
+                    syncMode: "eager",
+                    sync: {
+                        sync: ({
+                            begin,
+                            write,
+                            commit,
+                            markReady,
+                        }) => {
+                            begin();
+                            write({
+                                type: "insert",
+                                value: {
+                                    id: "employee-1",
+                                    title: "Visible title",
+                                    secret: "hidden value",
+                                },
+                            });
+                            commit();
+                            markReady();
+                        },
+                    },
+                }),
+                applyAction: async () => {},
+                runQueryFunction: async () =>
+                    undefined,
+            },
+            policy: {
+                fixedActionParameterValues: {
+                    editEmployee: {
+                        employee:
+                            o.Expression.literal({
+                                value: "employee-1",
+                            }),
+                    },
+                },
+                baseObjectTypeQueries: {
+                    Employee: ({
+                        q,
+                        collection,
+                    }: any) =>
+                        q.from({
+                            object: collection,
+                        }),
+                },
+                allowedObjectTypeProperties: {
+                    Employee: ["id", "title"],
+                },
+            } as any,
+        });
+
+        const describeResponse =
+            await server.handleRequest(
+                new Request(
+                    "http://example.test/describe",
+                    {
+                        method: "POST",
+                        body: serializeRemoteOntologyJson(
+                            {}
+                        ),
+                    }
+                )
+            );
+        const description =
+            parseRemoteOntologyJson(
+                await describeResponse.text()
+            ) as RemoteOntologyDescription;
+        expect(
+            description.ir.actionTypes[0]!.parameters.map(
+                (parameter) => parameter.name
+            )
+        ).toEqual(["title", "secret"]);
+        expect(
+            description.ir.actionTypes[0]!.parameters[0]
+                ?.defaultValue
+        ).toBeUndefined();
+
+        const resolveResponse =
+            await server.handleRequest(
+                new Request(
+                    "http://example.test/resolve-action-parameters",
+                    {
+                        method: "POST",
+                        body: serializeRemoteOntologyJson(
+                            {
+                                actionType:
+                                    "editEmployee",
+                                parameters: {},
+                            }
+                        ),
+                    }
+                )
+            );
+
+        expect(resolveResponse.status).toBe(200);
+        expect(
+            parseRemoteOntologyJson(
+                await resolveResponse.text()
+            )
+        ).toEqual({
+            parameters: {
+                title: "Visible title",
+            },
         });
     });
 

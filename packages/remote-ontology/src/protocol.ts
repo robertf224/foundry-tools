@@ -16,6 +16,7 @@ export interface RemoteOntologyDescription {
     context?: Record<string, unknown>;
     capabilities?: {
         actionValidation?: boolean;
+        actionParameterResolution?: boolean;
     };
 }
 
@@ -23,6 +24,7 @@ export type RemoteOntologyEndpoint =
     | "describe"
     | "load-subset"
     | "validate-action"
+    | "resolve-action-parameters"
     | "apply-action"
     | "run-query-function"
     | "attachment-metadata"
@@ -55,6 +57,15 @@ export interface RemoteApplyActionResponse {
 
 export interface RemoteValidateActionRequest {
     actionType: string;
+    parameters: Record<string, unknown>;
+}
+
+export interface RemoteResolveActionParametersRequest {
+    actionType: string;
+    parameters: Record<string, unknown>;
+}
+
+export interface RemoteResolveActionParametersResponse {
     parameters: Record<string, unknown>;
 }
 
@@ -94,6 +105,10 @@ export interface RemoteOntologyTransport {
         request: RemoteValidateActionRequest,
         options?: RemoteOntologyTransportOptions
     ) => Promise<Uncertain<Result<null, readonly ValidationIssue[]>>>;
+    resolveActionParameters?: (
+        request: RemoteResolveActionParametersRequest,
+        options?: RemoteOntologyTransportOptions
+    ) => Promise<RemoteResolveActionParametersResponse>;
     runQueryFunction: (
         request: RemoteRunQueryFunctionRequest,
         options?: RemoteOntologyTransportOptions
@@ -108,10 +123,19 @@ export interface RemoteOntologyTransport {
     ) => Promise<Blob>;
 }
 
+export interface ResolvableRemoteOntologyTransport
+    extends RemoteOntologyTransport {
+    resolveActionParameters: (
+        request: RemoteResolveActionParametersRequest,
+        options?: RemoteOntologyTransportOptions
+    ) => Promise<RemoteResolveActionParametersResponse>;
+}
+
 export type RemoteOntologyRequestByEndpoint = {
     describe: RemoteDescribeRequest;
     "load-subset": RemoteLoadSubsetRequest;
     "validate-action": RemoteValidateActionRequest;
+    "resolve-action-parameters": RemoteResolveActionParametersRequest;
     "apply-action": RemoteApplyActionRequest;
     "run-query-function": RemoteRunQueryFunctionRequest;
     "attachment-metadata": RemoteAttachmentMetadataRequest;
@@ -122,6 +146,7 @@ export type RemoteOntologyResponseByEndpoint = {
     describe: RemoteOntologyDescription;
     "load-subset": RemoteLoadSubsetResponse;
     "validate-action": Uncertain<Result<null, readonly ValidationIssue[]>>;
+    "resolve-action-parameters": RemoteResolveActionParametersResponse;
     "apply-action": RemoteApplyActionResponse;
     "run-query-function": RemoteRunQueryFunctionResponse;
     "attachment-metadata": PartialAttachmentMetadata;
@@ -132,6 +157,7 @@ export type RemoteOntologyRequestEnvelope =
     | { endpoint: "describe"; input: RemoteDescribeRequest }
     | { endpoint: "load-subset"; input: RemoteLoadSubsetRequest }
     | { endpoint: "validate-action"; input: RemoteValidateActionRequest }
+    | { endpoint: "resolve-action-parameters"; input: RemoteResolveActionParametersRequest }
     | { endpoint: "apply-action"; input: RemoteApplyActionRequest }
     | { endpoint: "run-query-function"; input: RemoteRunQueryFunctionRequest }
     | { endpoint: "attachment-metadata"; input: RemoteAttachmentMetadataRequest }
@@ -151,6 +177,7 @@ export const remoteOntologyEndpointSchema = z.enum([
     "describe",
     "load-subset",
     "validate-action",
+    "resolve-action-parameters",
     "apply-action",
     "run-query-function",
     "attachment-metadata",
@@ -182,6 +209,13 @@ export const remoteValidateActionRequestSchema = z
         parameters: recordSchema,
     })
     .strict() satisfies z.ZodType<RemoteValidateActionRequest>;
+
+export const remoteResolveActionParametersRequestSchema = z
+    .object({
+        actionType: z.string().min(1),
+        parameters: recordSchema,
+    })
+    .strict() satisfies z.ZodType<RemoteResolveActionParametersRequest>;
 
 export const remoteRunQueryFunctionRequestSchema = z
     .object({
@@ -236,6 +270,10 @@ const remoteOntologyRpc = {
         endpoint: "validate-action",
         schema: remoteValidateActionRequestSchema,
     },
+    resolveActionParameters: {
+        endpoint: "resolve-action-parameters",
+        schema: remoteResolveActionParametersRequestSchema,
+    },
     runQueryFunction: {
         endpoint: "run-query-function",
         schema: remoteRunQueryFunctionRequestSchema,
@@ -261,6 +299,8 @@ export function parseRemoteOntologyRequest(
             return { endpoint, input: remoteOntologyRpc.loadSubset.schema.parse(input) };
         case "validate-action":
             return { endpoint, input: remoteOntologyRpc.validateAction.schema.parse(input) };
+        case "resolve-action-parameters":
+            return { endpoint, input: remoteOntologyRpc.resolveActionParameters.schema.parse(input) };
         case "apply-action":
             return { endpoint, input: remoteOntologyRpc.applyAction.schema.parse(input) };
         case "run-query-function":
