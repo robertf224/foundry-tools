@@ -1,5 +1,11 @@
 # @party-stack/remote-ontology
 
+## 0.8.0
+
+### Minor Changes
+
+- 671e3f8: Add secure HTTP and in-process action-parameter resolution with server-owned fixed parameters.
+
 ## 0.7.1
 
 ### Patch Changes
